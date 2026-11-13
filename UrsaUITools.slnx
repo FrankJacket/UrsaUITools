@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Ursa.UITools.Demo/Ursa.UITools.Demo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Ursa.UITools/Ursa.UITools.csproj" />
+  </Folder>
+</Solution>
