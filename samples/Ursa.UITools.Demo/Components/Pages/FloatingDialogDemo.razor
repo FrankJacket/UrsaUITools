@@ -1,0 +1,58 @@
+@page "/floating-dialog"
+
+<PageTitle>Floating dialog</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">UrsaFloatingDialog</MudText>
+<MudText Class="mb-4">
+    A non-modal dialog you can drag by its header and resize from any edge or corner.
+    The page stays interactive while it is open. The header and footer stay visible and adapt to the dialog width.
+</MudText>
+
+<MudStack Row="true" Spacing="2" Class="mb-4">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => _visible = !_visible)">
+        @(_visible ? "Hide dialog" : "Show dialog")
+    </MudButton>
+    <MudSwitch T="bool" @bind-Value="_closeOnEscape" Label="Close on Escape" Color="Color.Primary" />
+</MudStack>
+
+<MudTextField T="string" @bind-Value="_pageText" Label="Page field (stays usable while the dialog is open)" Variant="Variant.Outlined" />
+
+@if (_bounds is { } b)
+{
+    <MudText Typo="Typo.caption" Class="mt-2">
+        Last bounds: X=@b.X.ToString("0"), Y=@b.Y.ToString("0"), W=@b.Width.ToString("0"), H=@b.Height.ToString("0")
+    </MudText>
+}
+
+<UrsaFloatingDialog @bind-Visible="_visible"
+                    Title="Edit settings"
+                    CloseOnEscapeKey="_closeOnEscape"
+                    OnBoundsChanged="@(x => { _bounds = x; StateHasChanged(); })">
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_name" Label="Name" Variant="Variant.Outlined" />
+            <MudSelect T="string" @bind-Value="_choice" Label="Option" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("One")" />
+                <MudSelectItem Value="@("Two")" />
+                <MudSelectItem Value="@("Three")" />
+            </MudSelect>
+            @foreach (var line in Enumerable.Range(1, 12))
+            {
+                <MudText>Line @line: the content scrolls while the header and footer stay in place.</MudText>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _visible = false)">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@(() => _visible = false)">Save</MudButton>
+    </DialogActions>
+</UrsaFloatingDialog>
+
+@code {
+    private bool _visible;
+    private bool _closeOnEscape;
+    private string? _pageText;
+    private string? _name;
+    private string? _choice;
+    private UrsaDialogBounds? _bounds;
+}

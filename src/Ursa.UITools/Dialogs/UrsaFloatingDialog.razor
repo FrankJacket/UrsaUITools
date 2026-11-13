@@ -1,0 +1,58 @@
+@namespace Ursa.UITools
+@inherits MudComponentBase
+
+@if (Visible)
+{
+    <div @ref="_root"
+         id="@_id"
+         class="@Classname"
+         style="@Stylename"
+         role="dialog"
+         aria-modal="false"
+         aria-labelledby="@_titleId"
+         tabindex="-1"
+         data-draggable="@(Draggable ? "true" : "false")"
+         @onkeydown="OnKeyDownAsync"
+         @attributes="UserAttributes">
+        <div class="mud-dialog ursa-floating-dialog-paper">
+            <div class="mud-dialog-title ursa-floating-dialog-header @(Draggable ? "ursa-draggable" : null)">
+                <div class="ursa-floating-dialog-title" id="@_titleId">
+                    @if (TitleContent is not null)
+                    {
+                        @TitleContent
+                    }
+                    else if (!string.IsNullOrEmpty(Title))
+                    {
+                        <MudText Typo="Typo.h6">@Title</MudText>
+                    }
+                </div>
+                @if (ShowCloseButton)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   aria-label="@CloseButtonLabel"
+                                   OnClick="CloseAsync" />
+                }
+            </div>
+
+            <div class="mud-dialog-content ursa-floating-dialog-content">
+                @DialogContent
+            </div>
+
+            @if (DialogActions is not null)
+            {
+                <div class="mud-dialog-actions ursa-floating-dialog-footer">
+                    @DialogActions
+                </div>
+            }
+        </div>
+
+        @if (Resizable)
+        {
+            @foreach (var direction in ResizeDirections)
+            {
+                <div class="ursa-resize-handle ursa-resize-@direction" data-dir="@direction"></div>
+            }
+        }
+    </div>
+}
