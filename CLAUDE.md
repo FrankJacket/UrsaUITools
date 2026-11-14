@@ -5,6 +5,7 @@ Blazor component library (C#, .NET 10) that **extends MudBlazor**. It does not r
 ## Structure
 - `src/Ursa.UITools`: the library (Razor Class Library, depends on `MudBlazor`).
 - `samples/Ursa.UITools.Demo`: Blazor Server demo app (one page per component).
+- `tests/Ursa.UITools.Tests`: xUnit tests for the pure logic (run with `dotnet test`).
 - `UrsaUITools.slnx`: solution. Build with `dotnet build`.
 
 ## Language

@@ -1,0 +1,55 @@
+@page "/date-picker"
+@using System.Globalization
+
+<PageTitle>Date picker</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">UrsaDatePicker</MudText>
+<MudText Class="mb-4">
+    A MudDatePicker you can type in by default. It can also edit the time of day, by typing or with a time picker.
+    Formats follow the culture of the session (<b>@CultureInfo.CurrentCulture.Name</b>, from the browser language).
+</MudText>
+
+<MudSelect T="string" @bind-Value="_cultureName" Label="Culture (override for this demo)" Variant="Variant.Outlined" Class="mb-6" Style="max-width: 360px">
+    <MudSelectItem Value="@("")">Session culture (@CultureInfo.CurrentCulture.Name)</MudSelectItem>
+    @foreach (var name in Cultures)
+    {
+        <MudSelectItem Value="@name">@name</MudSelectItem>
+    }
+</MudSelect>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <UrsaDatePicker @bind-Date="_date" Culture="Culture" Label="Date" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_date?.ToString("O")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaDatePicker @bind-Date="_dateTime" Culture="Culture" ShowTime="true" Label="Date and time (typed)" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_dateTime?.ToString("O")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaDatePicker @bind-Date="_dateTimePick" Culture="Culture" ShowTimePicker="true" Label="Date and time (picker)" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_dateTimePick?.ToString("O")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaDatePicker @bind-Date="_dateCustom" Culture="Culture" Mask="_customMask" DateFormat="yyyy-MM-dd" Label="Your own mask (yyyy-MM-dd)" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_dateCustom?.ToString("O")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaDatePicker @bind-Date="_dateNoMask" Culture="Culture" AutoMask="false" Label="No mask (AutoMask=false)" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_dateNoMask?.ToString("O")</MudText>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private static readonly string[] Cultures = ["en-US", "en-GB", "fr-CA", "fr-FR", "de-DE", "ja-JP"];
+
+    private string _cultureName = "";
+    private DateTime? _date;
+    private DateTime? _dateTime = new(2026, 11, 14, 13, 45, 0);
+    private DateTime? _dateTimePick;
+    private DateTime? _dateCustom;
+    private DateTime? _dateNoMask;
+    private readonly IMask _customMask = new DateMask("yyyy-MM-dd");
+
+    private CultureInfo Culture => string.IsNullOrEmpty(_cultureName) ? CultureInfo.CurrentCulture : CultureInfo.GetCultureInfo(_cultureName);
+}

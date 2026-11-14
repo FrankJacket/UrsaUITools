@@ -5,4 +5,7 @@
   <Folder Name="/src/">
     <Project Path="src/Ursa.UITools/Ursa.UITools.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ursa.UITools.Tests/Ursa.UITools.Tests.csproj" />
+  </Folder>
 </Solution>

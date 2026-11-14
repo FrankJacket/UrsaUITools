@@ -20,6 +20,13 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+// Use the browser language (Accept-Language) as the session culture, so formats follow the user.
+string[] supportedCultures = ["en-US", "en-CA", "en-GB", "fr-CA", "fr-FR", "de-DE", "es-ES", "ja-JP"];
+app.UseRequestLocalization(options => options
+    .SetDefaultCulture("en-US")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures));
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
