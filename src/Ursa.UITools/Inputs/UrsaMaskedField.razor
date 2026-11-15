@@ -1,0 +1,22 @@
+@namespace Ursa.UITools
+
+<div @ref="_wrapper" class="@Class" style="@Style">
+    <MudTextField T="string"
+                  Value="@_text"
+                  ValueChanged="OnNativeChangedAsync"
+                  Label="@Label"
+                  Variant="@Variant"
+                  Margin="@Margin"
+                  Placeholder="@Placeholder"
+                  HelperText="@HelperText"
+                  Adornment="@Adornment"
+                  AdornmentIcon="@AdornmentIcon"
+                  AdornmentColor="@Color"
+                  Disabled="@Disabled"
+                  ReadOnly="@ReadOnly"
+                  Required="@Required"
+                  Error="@(_error is not null)"
+                  ErrorText="@_error"
+                  Immediate="false"
+                  UserAttributes="@UserAttributes" />
+</div>

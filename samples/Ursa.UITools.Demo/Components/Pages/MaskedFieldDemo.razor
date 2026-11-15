@@ -1,0 +1,56 @@
+@page "/masked-field"
+@using System.Globalization
+
+<PageTitle>Masked field</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">UrsaMaskedField</MudText>
+<MudText Class="mb-4">
+    A text field whose input mask runs in the browser: the server only receives the value on blur, on Enter, or when the mask is
+    complete, so typing never lags or loses the caret, even in Interactive Server mode. <b>0</b> is a digit, <b>a</b> a letter,
+    <b>*</b> anything; the other characters are inserted for you. Typing in the middle of a value overwrites, and Backspace or Delete
+    in the middle only move over the character.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_phone" Mask="(000) 000-0000" Label="Phone" Placeholder="(514) 555-0123" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_phone ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_postal" Mask="a0a 0a0" UpperCase="true" Pattern="@(@"^[A-Z]\d[A-Z] \d[A-Z]\d$")"
+                         PatternError="Not a valid postal code" Label="Postal code (mask + regex)" Placeholder="H2X 1Y4" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_postal ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_dateText" Mask="@UrsaMasks.Date(CultureInfo.CurrentCulture)" Validator="ValidateDate"
+                         CommitOn="UrsaMaskCommit.Complete" Label="@($"Date ({CultureInfo.CurrentCulture.Name}, committed when complete)")"
+                         Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_dateText ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_dateTimeText" Mask="@UrsaMasks.Date(CultureInfo.CurrentCulture, withTime: true)" Validator="ValidateDateTime"
+                         Label="Date and time" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_dateTimeText ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_iso" Mask="0000-00-00" Label="ISO date (yyyy-MM-dd), prefilled" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_iso ?? "(none)")</MudText>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string? _phone;
+    private string? _postal;
+    private string? _dateText;
+    private string? _dateTimeText;
+    private string? _iso = "2027-11-14";
+
+    private static string? ValidateDate(string text) => Validate(text, UrsaMasks.DateFormat(CultureInfo.CurrentCulture));
+
+    private static string? ValidateDateTime(string text) => Validate(text, UrsaMasks.DateFormat(CultureInfo.CurrentCulture, withTime: true));
+
+    private static string? Validate(string text, string? format) =>
+        format is not null && DateTime.TryParseExact(text, format, CultureInfo.CurrentCulture, DateTimeStyles.None, out _)
+            ? null
+            : "Not a valid date";
+}
