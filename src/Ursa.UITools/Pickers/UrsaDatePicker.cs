@@ -2,27 +2,36 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace Ursa.UITools;
 
 /// <summary>
-/// A <see cref="MudDatePicker"/> whose text box is editable by default, that can also edit the time of day
-/// by typing or by picking it in the popover. Formats follow the culture of the current session
-/// (<see cref="MudFormComponent{T, U}.Culture"/>, which defaults to <see cref="CultureInfo.CurrentCulture"/>).
+/// A <see cref="MudDatePicker"/> whose text box is editable by default, with an input mask built from the culture
+/// of the session and that runs in the browser (see <see cref="UrsaMaskedField"/>): the server only hears about the
+/// text when it is complete, on blur or on Enter, so typing never lags or loses the caret, and typing in the middle of
+/// a date overwrites instead of erasing it. It can also edit the time of day, by typing or with a time picker in the
+/// popover. A date that is incomplete, does not exist or is outside <c>MinDate</c>/<c>MaxDate</c> is reported as an error.
 /// </summary>
 public class UrsaDatePicker : MudDatePicker
 {
+    private const string ModulePath = "./_content/Ursa.UITools/Inputs/UrsaMaskedField.razor.js";
+
     private bool _lastShowTime;
     private CultureInfo? _lastCulture;
-    private DateMask? _autoMask;
-    private string? _autoMaskText;
     private bool _ownsPickerActions;
+    private string? _jsKey;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<UrsaDatePicker>? _self;
 
     public UrsaDatePicker()
     {
         Editable = true;
     }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
 
     /// <summary>
     /// Also edits the time of day by typing. The text uses the culture's short date pattern followed by its
@@ -39,12 +48,20 @@ public class UrsaDatePicker : MudDatePicker
     public bool ShowTimePicker { get; set; }
 
     /// <summary>
-    /// Applies an input mask built from the culture's date (and time) pattern, for example <c>__/__/____</c>
-    /// for fr-FR or <c>__/__/____ __:__ __</c> for en-US with time. A mask passed in <c>Mask</c> always wins,
-    /// and an explicit <c>DateFormat</c> only gets a mask when it is already fixed width (such as <c>dd/MM/yyyy</c>).
+    /// Applies an input mask built from the culture's date (and time) pattern, for example <c>00/00/0000</c>
+    /// for fr-FR or <c>00/00/0000 00:00 aa</c> for en-US with time. An explicit <c>DateFormat</c> only gets a mask
+    /// when it is already fixed width (such as <c>dd/MM/yyyy</c>).
     /// </summary>
     [Parameter]
     public bool AutoMask { get; set; } = true;
+
+    /// <summary>
+    /// Your own mask (<c>0</c> is a digit, <c>a</c> a letter, anything else is a literal), used instead of the one
+    /// built from the culture. Set <c>DateFormat</c> to the matching .NET format, for example
+    /// <c>MaskText="0000-00-00" DateFormat="yyyy-MM-dd"</c>.
+    /// </summary>
+    [Parameter]
+    public string? MaskText { get; set; }
 
     /// <summary>Minute step of the time picker.</summary>
     [Parameter]
@@ -57,6 +74,8 @@ public class UrsaDatePicker : MudDatePicker
     private bool EffectiveShowTime => ShowTime || ShowTimePicker;
 
     private CultureInfo EffectiveCulture => GetCulture() ?? CultureInfo.CurrentCulture;
+
+    private string? ActiveMaskText => AutoMask && Mask is null ? ComputeMaskText() : null;
 
     /// <inheritdoc />
     protected override string GetFormat()
@@ -71,13 +90,38 @@ public class UrsaDatePicker : MudDatePicker
 
         var pattern = EffectiveShowTime ? $"{info.ShortDatePattern} {info.ShortTimePattern}" : info.ShortDatePattern;
 
-        // With the automatic mask, use a fixed-width pattern so formatted text always fits the mask.
-        return UsesAutoMask && UrsaDatePattern.TryCreate(pattern, info, out var fixedWidth)
+        // With the mask, use a fixed-width pattern so formatted text always fits it.
+        return AutoMask && Mask is null && UrsaDatePattern.TryCreate(pattern, info, out var fixedWidth)
             ? fixedWidth!.Normalized
             : pattern;
     }
 
-    private bool UsesAutoMask => AutoMask && (Mask is null || ReferenceEquals(Mask, _autoMask));
+    private string? ComputeMaskText()
+    {
+        if (!string.IsNullOrEmpty(MaskText))
+        {
+            return MaskText;
+        }
+
+        var info = EffectiveCulture.DateTimeFormat;
+        var explicitFormat = base.GetFormat() != info.ShortDatePattern;
+        if (!UrsaDatePattern.TryCreate(GetFormat(), info, out var pattern))
+        {
+            return null;
+        }
+
+        // An explicit DateFormat is never padded, so it only gets a mask when it is already fixed width.
+        return explicitFormat && !pattern!.IsFixedWidth
+            ? null
+            : pattern!.MaskText.Replace('y', '0').Replace('M', '0').Replace('d', '0');
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        InputId ??= $"ursa-date-{Guid.NewGuid():N}"; // the script finds the input by id
+    }
 
     /// <inheritdoc />
     protected override async Task OnParametersSetAsync()
@@ -102,10 +146,15 @@ public class UrsaDatePicker : MudDatePicker
             PickerActions = null;
         }
 
-        // Re-render the text when something that drives its format or mask changes.
+        // The date must be inside MinDate and MaxDate; the converter already rejects text that is not a date.
+        if (Validation is null)
+        {
+            Validation = (Func<DateTime?, string?>)ValidateRange;
+        }
+
+        // Re-render the text when something that drives its format changes.
         var culture = EffectiveCulture;
-        var maskChanged = UpdateAutoMask();
-        if (maskChanged || _lastShowTime != EffectiveShowTime || !ReferenceEquals(_lastCulture, culture))
+        if (_lastShowTime != EffectiveShowTime || !ReferenceEquals(_lastCulture, culture))
         {
             _lastShowTime = EffectiveShowTime;
             _lastCulture = culture;
@@ -113,43 +162,76 @@ public class UrsaDatePicker : MudDatePicker
         }
     }
 
-    /// <summary>
-    /// Keeps <see cref="MudPicker{T}.Mask"/> in sync with the culture format, unless the caller supplied a mask.
-    /// </summary>
-    /// <returns>True when the automatic mask changed.</returns>
-    private bool UpdateAutoMask()
+    // MinDate and MaxDate are read straight from the parameters: the ParameterState instances are private to MudBlazor.
+#pragma warning disable MUD0010
+    private string? ValidateRange(DateTime? date)
     {
-        if (Mask is not null && !ReferenceEquals(Mask, _autoMask))
-        {
-            return false; // the caller's mask wins
-        }
-
-        var text = AutoMask ? ComputeAutoMaskText() : null;
-        if (text == _autoMaskText)
-        {
-            return false;
-        }
-
-        _autoMaskText = text;
-        _autoMask = text is null ? null : CreateMask(text);
-        Mask = _autoMask;
-        return true;
-    }
-
-    // MudBlazor's built-in DateMask, with a visible placeholder and upper-cased AM/PM.
-    private static DateMask CreateMask(string text) => new(text) { Placeholder = '_', Transformation = char.ToUpperInvariant };
-
-    private string? ComputeAutoMaskText()
-    {
-        var info = EffectiveCulture.DateTimeFormat;
-        var explicitFormat = base.GetFormat() != info.ShortDatePattern;
-        if (!UrsaDatePattern.TryCreate(GetFormat(), info, out var pattern))
+        if (date is not { } value)
         {
             return null;
         }
 
-        // An explicit DateFormat is never padded, so it only gets a mask when it is already fixed width.
-        return explicitFormat && !pattern!.IsFixedWidth ? null : pattern!.MaskText;
+        var info = EffectiveCulture.DateTimeFormat;
+        if (MinDate is { } min && value.Date < min.Date)
+        {
+            return $"The date must be on or after {min.ToString(info.ShortDatePattern, EffectiveCulture)}";
+        }
+
+        if (MaxDate is { } max && value.Date > max.Date)
+        {
+            return $"The date must be on or before {max.ToString(info.ShortDatePattern, EffectiveCulture)}";
+        }
+
+        return null;
+    }
+#pragma warning restore MUD0010
+
+
+    /// <summary>Called from JavaScript when the masked text is complete, or on blur or Enter.</summary>
+    [JSInvokable]
+    public async Task OnMaskCommit(string text)
+    {
+        await SetTextAsync(text, true);
+        StateHasChanged();
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        var mask = ActiveMaskText;
+        if (mask == _jsKey)
+        {
+            return;
+        }
+
+        var attach = _jsKey is null;
+        _jsKey = mask;
+        try
+        {
+            _module ??= await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            _self ??= DotNetObjectReference.Create(this);
+            if (mask is null)
+            {
+                await _module.InvokeVoidAsync("detachById", InputId);
+                return;
+            }
+
+            var options = new { mask, upper = true, commitOnComplete = true };
+            if (attach)
+            {
+                await _module.InvokeVoidAsync("attachById", InputId, _self, options);
+            }
+            else
+            {
+                await _module.InvokeVoidAsync("updateById", InputId, options);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // the circuit is already gone
+        }
     }
 
     /// <inheritdoc />
@@ -209,4 +291,24 @@ public class UrsaDatePicker : MudDatePicker
 
     private static DateTime WithTime(DateTime date, TimeSpan time) =>
         DateTime.SpecifyKind(date.Date + time, DateTimeKind.Unspecified);
+
+    /// <inheritdoc />
+    protected override async ValueTask DisposeAsyncCore()
+    {
+        await base.DisposeAsyncCore();
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.InvokeVoidAsync("detachById", InputId);
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // the circuit is already gone
+        }
+
+        _self?.Dispose();
+    }
 }

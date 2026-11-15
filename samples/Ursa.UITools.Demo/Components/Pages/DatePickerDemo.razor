@@ -23,7 +23,7 @@
         <MudText Typo="Typo.caption">Value: @_date?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaDatePicker @bind-Date="_dateTime" Culture="Culture" ShowTime="true" Label="Date and time (typed)" Variant="Variant.Outlined" />
+        <UrsaDatePicker @bind-Date="_dateTime"  ShowTime="true" Label="Date and time (typed)" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @_dateTime?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
@@ -31,7 +31,7 @@
         <MudText Typo="Typo.caption">Value: @_dateTimePick?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaDatePicker @bind-Date="_dateCustom" Culture="Culture" Mask="_customMask" DateFormat="yyyy-MM-dd" Label="Your own mask (yyyy-MM-dd)" Variant="Variant.Outlined" />
+        <UrsaDatePicker @bind-Date="_dateCustom" Culture="Culture" MaskText="0000-00-00" DateFormat="yyyy-MM-dd" Label="Your own mask (yyyy-MM-dd)" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @_dateCustom?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
@@ -49,7 +49,6 @@
     private DateTime? _dateTimePick;
     private DateTime? _dateCustom;
     private DateTime? _dateNoMask;
-    private readonly IMask _customMask = new DateMask("yyyy-MM-dd");
 
     private CultureInfo Culture => string.IsNullOrEmpty(_cultureName) ? CultureInfo.CurrentCulture : CultureInfo.GetCultureInfo(_cultureName);
 }
