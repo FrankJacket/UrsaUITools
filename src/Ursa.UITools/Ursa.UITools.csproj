@@ -2,8 +2,12 @@
 
   <PropertyGroup>
     <PackageId>Ursa.UITools</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>FrankJacket</Authors>
     <Description>Visual component extensions for MudBlazor.</Description>
+    <PackageTags>blazor;mudblazor;components</PackageTags>
     <RepositoryUrl>https://github.com/FrankJacket/UrsaUITools</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
