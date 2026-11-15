@@ -1,0 +1,100 @@
+/* The frame follows the MudBlazor outlined input: border, radius, focus and error colors, and typography all come from
+   the theme variables, so light and dark mode work without any specific code. */
+
+::deep .ursa-editor-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--mud-palette-text-secondary);
+}
+
+.ursa-editor-focused ::deep .ursa-editor-label {
+    color: var(--mud-palette-primary);
+}
+
+.ursa-editor-error ::deep .ursa-editor-label {
+    color: var(--mud-palette-error);
+}
+
+.ursa-editor-box {
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    background-color: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    transition: border-color 150ms;
+}
+
+.ursa-editor-box:hover {
+    border-color: var(--mud-palette-action-default);
+}
+
+.ursa-editor-focused .ursa-editor-box {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 1px var(--mud-palette-primary);
+}
+
+.ursa-editor-error .ursa-editor-box {
+    border-color: var(--mud-palette-error);
+}
+
+.ursa-editor-error.ursa-editor-focused .ursa-editor-box {
+    box-shadow: 0 0 0 1px var(--mud-palette-error);
+}
+
+.ursa-editor-disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+::deep .ursa-editor-helper {
+    display: block;
+    margin: 3px 14px 0;
+    color: var(--mud-palette-text-secondary);
+}
+
+::deep .ursa-editor-tool-active {
+    color: var(--mud-palette-primary);
+    background-color: var(--mud-palette-action-default-hover);
+}
+
+::deep .ql-container {
+    font-family: var(--mud-typography-body1-family);
+    font-size: var(--mud-typography-body1-size);
+    line-height: var(--mud-typography-body1-lineheight);
+}
+
+::deep .ql-editor {
+    padding: 12px 14px;
+    min-height: inherit;
+}
+
+::deep .ql-editor.ql-blank::before {
+    left: 14px;
+    right: 14px;
+    font-style: normal;
+    color: var(--mud-palette-text-secondary);
+}
+
+::deep .ql-editor blockquote {
+    border-left: 4px solid var(--mud-palette-lines-inputs);
+    margin: 8px 0;
+    padding-left: 12px;
+    color: var(--mud-palette-text-secondary);
+}
+
+::deep .ql-editor pre.ql-syntax,
+::deep .ql-editor .ql-code-block-container {
+    background-color: var(--mud-palette-background-gray);
+    color: var(--mud-palette-text-primary);
+    border-radius: var(--mud-default-borderradius);
+    padding: 8px 12px;
+    font-family: var(--mud-typography-default-family);
+}
+
+::deep .ql-editor a {
+    color: var(--mud-palette-primary);
+}
+
+::deep .ql-clipboard {
+    position: absolute;
+    left: -100000px;
+}

@@ -1,0 +1,48 @@
+@page "/editor"
+
+<PageTitle>Editor</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">UrsaEditor</MudText>
+<MudText Class="mb-4">
+    A rich text editor based on Quill, as HTML or Markdown. The toolbar and the frame are MudBlazor components and theme variables, so
+    the editor follows the light and dark themes. The server receives the content after a pause in the typing or on blur.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <UrsaEditor @bind-Value="_html" Label="HTML" Placeholder="Write something..." HelperText="The value is HTML." />
+        <MudText Typo="Typo.caption" Class="mt-2">Value:</MudText>
+        <pre style="white-space: pre-wrap; word-break: break-word; margin: 0">@_html</pre>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <UrsaEditor @bind-Value="_markdown" Format="UrsaEditorFormat.Markdown" Label="Markdown" Placeholder="Write something..."
+                    HelperText="The value is Markdown; underline is not available." />
+        <MudText Typo="Typo.caption" Class="mt-2">Value:</MudText>
+        <pre style="white-space: pre-wrap; word-break: break-word; margin: 0">@_markdown</pre>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <UrsaEditor Value="<p>Read-only content with <strong>formatting</strong>.</p>" ReadOnly="true" Tools="UrsaEditorTools.None" Label="Read-only" MinHeight="80px" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <UrsaEditor @bind-Value="_required" Label="With an error" ErrorText="@(string.IsNullOrWhiteSpace(_required) ? "This field is required" : null)"
+                    Tools="UrsaEditorTools.Bold | UrsaEditorTools.Italic | UrsaEditorTools.Lists" MinHeight="80px" MaxHeight="200px" />
+    </MudItem>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h6" GutterBottom="true">Links and images</MudText>
+        <MudText Class="mb-2">
+            Select some text and press the link button to add or change a link (clear the address to remove it). The image button inserts an image
+            from an address or from an uploaded file; without an <code>ImageUploader</code> the file is embedded in the content (up to
+            <code>MaxImageSize</code>), with one you store it yourself and return its address.
+        </MudText>
+        <UrsaEditor @bind-Value="_rich" Label="Content with a link and an image" MinHeight="200px" />
+        <MudText Typo="Typo.caption" Class="mt-2">Value:</MudText>
+        <pre style="white-space: pre-wrap; word-break: break-all; margin: 0; max-height: 160px; overflow: auto">@_rich</pre>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string? _html = "<h2>Hello</h2><p>This is <strong>Quill</strong> inside <em>MudBlazor</em>.</p>";
+    private string? _markdown = "## Hello\n\nThis is **Quill** inside *MudBlazor*.\n\n- one\n- two";
+    private string? _required;
+    private string? _rich = "<p>Read the <a href=\"https://quilljs.com\" target=\"_blank\">Quill documentation</a> for more.</p><p><img src=\"data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27120%27 height=%2760%27%3E%3Crect width=%27120%27 height=%2760%27 rx=%278%27 fill=%27%23594ae2%27/%3E%3Ctext x=%2760%27 y=%2736%27 fill=%27white%27 font-size=%2716%27 text-anchor=%27middle%27%3EImage%3C/text%3E%3C/svg%3E\" alt=\"Sample image\"></p>";
+}

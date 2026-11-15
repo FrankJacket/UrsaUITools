@@ -1,0 +1,128 @@
+@namespace Ursa.UITools
+@using Microsoft.AspNetCore.Components.Forms
+
+<div @ref="_root" class="@RootClass" style="@Style">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <MudText Typo="Typo.caption" Class="ursa-editor-label">@Label</MudText>
+    }
+    <div class="ursa-editor-box">
+        @if (EffectiveTools != UrsaEditorTools.None)
+        {
+            <div class="ursa-editor-toolbar d-flex flex-wrap align-center pa-1">
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.History))
+                {
+                    @Button("undo", Icons.Material.Filled.Undo, "Undo")
+                    @Button("redo", Icons.Material.Filled.Redo, "Redo")
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Bold))
+                {
+                    @Button("bold", Icons.Material.Filled.FormatBold, "Bold")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Italic))
+                {
+                    @Button("italic", Icons.Material.Filled.FormatItalic, "Italic")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Underline))
+                {
+                    @Button("underline", Icons.Material.Filled.FormatUnderlined, "Underline")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Strike))
+                {
+                    @Button("strike", Icons.Material.Filled.FormatStrikethrough, "Strikethrough")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Headings))
+                {
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                    @Button("h1", Icons.Material.Filled.LooksOne, "Heading 1")
+                    @Button("h2", Icons.Material.Filled.LooksTwo, "Heading 2")
+                    @Button("h3", Icons.Material.Filled.Looks3, "Heading 3")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Lists))
+                {
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                    @Button("bullet", Icons.Material.Filled.FormatListBulleted, "Bulleted list")
+                    @Button("ordered", Icons.Material.Filled.FormatListNumbered, "Numbered list")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Quote) || EffectiveTools.HasFlag(UrsaEditorTools.Code))
+                {
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Quote))
+                {
+                    @Button("blockquote", Icons.Material.Filled.FormatQuote, "Quote")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Code))
+                {
+                    @Button("code", Icons.Material.Filled.Code, "Code block")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Link) || EffectiveTools.HasFlag(UrsaEditorTools.Image))
+                {
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Link))
+                {
+                    @Button("link", Icons.Material.Filled.InsertLink, "Link")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Image))
+                {
+                    @Button("image", Icons.Material.Filled.Image, "Image")
+                }
+                @if (EffectiveTools.HasFlag(UrsaEditorTools.Clean))
+                {
+                    <MudDivider Vertical="true" FlexItem="true" Class="mx-1 my-1" />
+                    @Button("clean", Icons.Material.Filled.FormatClear, "Clear formatting")
+                }
+            </div>
+            <MudDivider />
+        }
+        <div @ref="_surface" class="ursa-editor-surface" style="@SurfaceStyle"></div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error ?? HelperText))
+    {
+        <MudText Typo="Typo.caption" Color="@(_error is null ? Color.Default : Color.Error)" Class="ursa-editor-helper">@(_error ?? HelperText)</MudText>
+    }
+    <MudDialog Visible="@(_panel is not null)" VisibleChanged="OnDialogVisibleChanged" Options="DialogOptions">
+        <TitleContent>
+            <MudText Typo="Typo.h6">@PanelTitle</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudStack Spacing="2">
+                @if (_panel != "image-edit")
+                {
+                    <MudTextField T="string" @bind-Value="_panelUrl" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Label="@(_panel == "link" ? "Link address" : "Image address")" Placeholder="https://" AutoFocus="true" />
+                }
+                @if (_panel is "image" or "image-edit")
+                {
+                    <MudTextField T="string" @bind-Value="_panelAlt" Variant="Variant.Outlined" Margin="Margin.Dense" Label="Description (alt text)" />
+                    <MudNumericField T="int?" @bind-Value="_panelWidth" Variant="Variant.Outlined" Margin="Margin.Dense" Min="16" Max="4000"
+                                     Label="Width (pixels)" HelperText="Leave empty for the original size; the height follows." />
+                }
+                @if (_panel == "image")
+                {
+                    <MudFileUpload T="IBrowserFile" Accept="image/*" FilesChanged="OnImagePickedAsync">
+                        <CustomContent>
+                            <MudButton OnClick="@(() => context.OpenFilePickerAsync())" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Upload">Upload an image</MudButton>
+                        </CustomContent>
+                    </MudFileUpload>
+                }
+                @if (_panelError is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error">@_panelError</MudText>
+                }
+            </MudStack>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="ClosePanel">Cancel</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApplyPanelAsync">@PanelAction</MudButton>
+        </DialogActions>
+    </MudDialog>
+</div>
+
+@code {
+    private RenderFragment Button(string command, string icon, string title) => @<MudIconButton Icon="@icon" Size="Size.Small" Color="Color.Default"
+                                                                                              Disabled="@(Disabled || ReadOnly)" Class="ursa-editor-tool"
+                                                                                              UserAttributes="@(new Dictionary<string, object> { ["data-ursa-cmd"] = command, ["title"] = title, ["aria-label"] = title })" />;
+}
