@@ -40,6 +40,34 @@
     box-shadow: 0 0 0 1px var(--mud-palette-error);
 }
 
+/* FillHeight: root, frame and writing area form a flex column, so the writing area takes the height left
+   in the container and scrolls inside (Quill's .ql-editor scrolls on its own). */
+.ursa-editor-fill {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.ursa-editor-fill .ursa-editor-box {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* MudDivider has flex-grow: 1, which would take the free height away from the writing area. */
+.ursa-editor-fill .ursa-editor-toolbar,
+.ursa-editor-fill .ursa-editor-box > ::deep .mud-divider {
+    flex: 0 0 auto;
+}
+
+.ursa-editor-fill .ursa-editor-surface {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .ursa-editor-disabled {
     opacity: 0.6;
     pointer-events: none;

@@ -154,6 +154,15 @@ public partial class UrsaEditor : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? Style { get; set; }
 
+    /// <summary>
+    /// Stretches the editor to the bottom of its container instead of growing with its content: the writing area takes
+    /// all the height left and scrolls inside. The container must be a flex column (or have a fixed height), for example the
+    /// content of an <see cref="UrsaFloatingDialog"/> wrapped in <c>d-flex flex-column</c>. <see cref="MinHeight"/> still applies;
+    /// <see cref="MaxHeight"/> is ignored.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
+
     private UrsaEditorTools EffectiveTools =>
         Tools ?? (Format == UrsaEditorFormat.Markdown ? UrsaEditorTools.Markdown : UrsaEditorTools.All);
 
@@ -161,12 +170,13 @@ public partial class UrsaEditor : ComponentBase, IAsyncDisposable
     {
         "ursa-editor",
         Disabled ? "ursa-editor-disabled" : null,
+        FillHeight ? "ursa-editor-fill" : null,
         ErrorText is not null || _error is not null ? "ursa-editor-error" : null,
         Class,
     }.Where(c => !string.IsNullOrEmpty(c)));
 
     private string SurfaceStyle =>
-        $"min-height: {MinHeight};{(MaxHeight is null ? "" : $" max-height: {MaxHeight}; overflow-y: auto;")}";
+        $"min-height: {MinHeight};{(MaxHeight is null || FillHeight ? "" : $" max-height: {MaxHeight}; overflow-y: auto;")}";
 
     private string? _panel;
     private string? _panelUrl;

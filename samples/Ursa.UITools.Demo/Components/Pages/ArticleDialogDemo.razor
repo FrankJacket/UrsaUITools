@@ -1,0 +1,103 @@
+@page "/article-dialog"
+
+<PageTitle>Article dialog</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Article entry in a floating dialog</MudText>
+<MudText Class="mb-4">
+    A realistic form that combines several Ursa components in an <b>UrsaFloatingDialog</b>: a title, a publication date and time
+    (<b>UrsaDatePicker</b>), the writer's full address with phone and email (<b>UrsaMaskedField</b> with a <b>MaskType</b>), and the
+    article body in an <b>UrsaEditor</b> with <b>FillHeight</b>: the editor is anchored to the bottom of the dialog, so when you resize
+    the dialog the writing area grows or shrinks with it and scrolls inside.
+</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => _visible = true)" Disabled="_visible">
+    @(_saved ? "Edit the article" : "New article")
+</MudButton>
+
+@if (_saved)
+{
+    <MudPaper Class="pa-4 mt-6" Outlined="true">
+        <MudText Typo="Typo.h6">@(string.IsNullOrWhiteSpace(_title) ? "(untitled)" : _title)</MudText>
+        <MudText Typo="Typo.caption" Class="mb-2">Published @(_published?.ToString("g") ?? "(no date)")</MudText>
+        <MudText Typo="Typo.subtitle2">Writer</MudText>
+        <MudText>@_writerName</MudText>
+        <MudText>@_street</MudText>
+        <MudText>@_city @_province @_postal</MudText>
+        <MudText>@_phone</MudText>
+        <MudText Class="mb-2">@_email</MudText>
+        <MudText Typo="Typo.subtitle2">HTML content</MudText>
+        <pre class="pa-2" style="white-space: pre-wrap; overflow-x: auto;">@_content</pre>
+    </MudPaper>
+}
+
+<UrsaFloatingDialog @bind-Visible="_visible" Title="New article" InitialWidth="880" InitialHeight="760" MinWidth="520" MinHeight="420">
+    <DialogContent>
+        @* A flex column that fills the dialog content: the form parts keep their height, the editor takes the rest. *@
+        <div class="d-flex flex-column" style="height: 100%; min-height: 560px;">
+            <MudGrid Spacing="2" Class="flex-grow-0 mb-2">
+                <MudItem xs="12" md="8">
+                    <MudTextField T="string" @bind-Value="_title" Label="Title" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <UrsaDatePicker @bind-Date="_published" ShowTimePicker="true" Label="Publication date and time"
+                                    Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2">Writer</MudText>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField T="string" @bind-Value="_writerName" Label="Full name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <UrsaMaskedField @bind-Value="_phone" MaskType="UrsaMaskType.PhoneNorthAmerica" Label="Phone" Placeholder="(514) 555-0123"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <UrsaMaskedField @bind-Value="_email" MaskType="UrsaMaskType.Email" Label="Email" Placeholder="name@example.com"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" @bind-Value="_street" Label="Street address" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string" @bind-Value="_city" Label="City" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" md="1">
+                    <MudTextField T="string" @bind-Value="_province" Label="Prov." Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" md="2">
+                    <UrsaMaskedField @bind-Value="_postal" MaskType="UrsaMaskType.PostalCodeCanada" Label="Postal code" Placeholder="H2X 1Y4"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            </MudGrid>
+
+            <UrsaEditor @bind-Value="_content" Label="Article" Placeholder="Write the article here..." FillHeight="true" MinHeight="140px" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _visible = false)">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</UrsaFloatingDialog>
+
+@code {
+    private bool _visible;
+    private bool _saved;
+    private string? _title;
+    private DateTime? _published = DateTime.Now;
+    private string? _writerName;
+    private string? _phone;
+    private string? _email;
+    private string? _street;
+    private string? _city;
+    private string? _province;
+    private string? _postal;
+    private string? _content;
+
+    private void Save()
+    {
+        _saved = true;
+        _visible = false;
+    }
+}
