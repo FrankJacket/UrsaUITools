@@ -67,9 +67,11 @@ public class UrsaDatePicker : MudDatePicker
     [Parameter]
     public int MinuteSelectionStep { get; set; } = 1;
 
-    /// <summary>Text of the button that closes the popover when <see cref="ShowTimePicker"/> is on.</summary>
+    private static readonly UrsaLoc L = new();
+
+    /// <summary>Text of the button that closes the popover when <see cref="ShowTimePicker"/> is on. Defaults to the translation of "OK".</summary>
     [Parameter]
-    public string OkText { get; set; } = "OK";
+    public string? OkText { get; set; }
 
     private bool EffectiveShowTime => ShowTime || ShowTimePicker;
 
@@ -136,7 +138,7 @@ public class UrsaDatePicker : MudDatePicker
                 builder.OpenComponent<MudButton>(0);
                 builder.AddComponentParameter(1, nameof(MudButton.Color), Color);
                 builder.AddComponentParameter(2, nameof(MudButton.OnClick), EventCallback.Factory.Create<MouseEventArgs>(this, () => context.CloseAsync()));
-                builder.AddComponentParameter(3, nameof(MudButton.ChildContent), (RenderFragment)(content => content.AddContent(4, OkText)));
+                builder.AddComponentParameter(3, nameof(MudButton.ChildContent), (RenderFragment)(content => content.AddContent(4, OkText ?? L["OK"])));
                 builder.CloseComponent();
             };
         }
@@ -174,12 +176,12 @@ public class UrsaDatePicker : MudDatePicker
         var info = EffectiveCulture.DateTimeFormat;
         if (MinDate is { } min && value.Date < min.Date)
         {
-            return $"The date must be on or after {min.ToString(info.ShortDatePattern, EffectiveCulture)}";
+            return L["The date must be on or after {0}", min.ToString(info.ShortDatePattern, EffectiveCulture)];
         }
 
         if (MaxDate is { } max && value.Date > max.Date)
         {
-            return $"The date must be on or before {max.ToString(info.ShortDatePattern, EffectiveCulture)}";
+            return L["The date must be on or before {0}", max.ToString(info.ShortDatePattern, EffectiveCulture)];
         }
 
         return null;

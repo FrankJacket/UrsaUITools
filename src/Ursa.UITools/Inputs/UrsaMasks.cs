@@ -5,6 +5,8 @@ namespace Ursa.UITools;
 /// <summary>Ready-made masks for <see cref="UrsaMaskedField"/>.</summary>
 public static class UrsaMasks
 {
+    private static readonly UrsaLoc L = new();
+
     /// <summary>
     /// The mask of a date (and optionally time) in the format of <paramref name="culture"/>, for example
     /// <c>00/00/0000</c> in fr-FR or <c>00/00/0000 00:00 aa</c> in en-US with time. Returns null when the culture's
@@ -28,11 +30,11 @@ public static class UrsaMasks
     /// </summary>
     public static UrsaMaskPreset? ForType(UrsaMaskType type, CultureInfo? culture = null) => type switch
     {
-        UrsaMaskType.PhoneNorthAmerica => new("(000) 000-0000", @"^\([2-9]\d{2}\) [2-9]\d{2}-\d{4}$", "Not a valid phone number"),
-        UrsaMaskType.PhoneEurope => new("+00 0 00 00 00 00", @"^\+[34]\d \d \d{2} \d{2} \d{2} \d{2}$", "Not a valid European phone number"),
-        UrsaMaskType.PostalCodeCanada => new("a0a 0a0", @"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] \d[ABCEGHJ-NPRSTV-Z]\d$", "Not a valid postal code", UpperCase: true),
-        UrsaMaskType.ZipCodeUS => new("00000", @"^\d{5}$", "Not a valid ZIP code"),
-        UrsaMaskType.Email => new("", @"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$", "Not a valid email address"),
+        UrsaMaskType.PhoneNorthAmerica => new("(000) 000-0000", @"^\([2-9]\d{2}\) [2-9]\d{2}-\d{4}$", L["Not a valid phone number"]),
+        UrsaMaskType.PhoneEurope => new("+00 0 00 00 00 00", @"^\+[34]\d \d \d{2} \d{2} \d{2} \d{2}$", L["Not a valid European phone number"]),
+        UrsaMaskType.PostalCodeCanada => new("a0a 0a0", @"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] \d[ABCEGHJ-NPRSTV-Z]\d$", L["Not a valid postal code"], UpperCase: true),
+        UrsaMaskType.ZipCodeUS => new("00000", @"^\d{5}$", L["Not a valid ZIP code"]),
+        UrsaMaskType.Email => new("", @"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$", L["Not a valid email address"]),
         UrsaMaskType.Date =>DatePreset(culture, withTime: false),
         UrsaMaskType.DateTime => DatePreset(culture, withTime: true),
         _ => null,
@@ -51,7 +53,7 @@ public static class UrsaMasks
             format = withTime ? "yyyy-MM-dd HH:mm" : "yyyy-MM-dd";
         }
 
-        var error = withTime ? "Not a valid date and time" : "Not a valid date";
+        var error = withTime ? L["Not a valid date and time"] : L["Not a valid date"];
         return new(mask, null, error, UpperCase: true,
             Validator: text => DateTime.TryParseExact(text, format, current, DateTimeStyles.None, out _) ? null : error);
     }

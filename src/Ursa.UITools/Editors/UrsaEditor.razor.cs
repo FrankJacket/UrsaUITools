@@ -196,20 +196,22 @@ public partial class UrsaEditor : ComponentBase, IAsyncDisposable
     [Parameter]
     public Func<IBrowserFile, Task<string>>? ImageUploader { get; set; }
 
+    private static readonly UrsaLoc L = new();
+
     private static readonly DialogOptions DialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
     private string PanelTitle => _panel switch
     {
-        "link" => "Link",
-        "image-edit" => "Image properties",
-        _ => "Insert image",
+        "link" => L["Link"],
+        "image-edit" => L["Image properties"],
+        _ => L["Insert image"],
     };
 
     private string PanelAction => _panel switch
     {
-        "link" => string.IsNullOrWhiteSpace(_panelUrl) && _panelHadLink ? "Remove link" : "Apply",
-        "image-edit" => "Apply",
-        _ => "Insert",
+        "link" => string.IsNullOrWhiteSpace(_panelUrl) && _panelHadLink ? L["Remove link"] : L["Apply"],
+        "image-edit" => L["Apply"],
+        _ => L["Insert"],
     };
 
     /// <summary>Called from JavaScript when the link or image button is pressed, or an image is edited.</summary>
@@ -246,7 +248,7 @@ public partial class UrsaEditor : ComponentBase, IAsyncDisposable
 
         if (_panel == "image" && string.IsNullOrEmpty(url))
         {
-            _panelError = "Enter an address or upload an image";
+            _panelError = L["Enter an address or upload an image"];
             return;
         }
 
@@ -296,7 +298,7 @@ public partial class UrsaEditor : ComponentBase, IAsyncDisposable
         }
         catch (IOException)
         {
-            _panelError = $"The image is larger than {MaxImageSize / 1000} KB";
+            _panelError = L["The image is larger than {0} KB", MaxImageSize / 1000];
         }
     }
 

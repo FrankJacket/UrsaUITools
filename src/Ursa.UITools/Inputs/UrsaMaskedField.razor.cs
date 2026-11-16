@@ -45,7 +45,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
 
     private string _mask = "";
     private string? _pattern;
-    private string _patternError = "Invalid value";
+    private static readonly UrsaLoc L = new();
+
+    private string _patternError = "";
     private bool _upper;
     private Func<string, string?>? _presetValidator;
 
@@ -88,9 +90,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? PatternError { get; set; }
 
-    /// <summary>The error shown when the mask is only partly filled.</summary>
+    /// <summary>The error shown when the mask is only partly filled. Defaults to the translation of "Incomplete value".</summary>
     [Parameter]
-    public string IncompleteError { get; set; } = "Incomplete value";
+    public string? IncompleteError { get; set; }
 
     /// <summary>Extra validation of a complete value: return an error message, or null when it is valid.</summary>
     [Parameter]
@@ -165,7 +167,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         var preset = UrsaMasks.ForType(MaskType, Culture);
         _mask = string.IsNullOrEmpty(Mask) ? preset?.Mask ?? "" : Mask;
         _pattern = Pattern ?? preset?.Pattern;
-        _patternError = PatternError ?? preset?.PatternError ?? "Invalid value";
+        _patternError = PatternError ?? preset?.PatternError ?? L["Invalid value"];
         _upper = UpperCase || preset?.UpperCase == true;
         _presetValidator = preset?.Validator;
 
@@ -230,7 +232,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         }
         else if (CountFilled(text) < slots)
         {
-            _error = IncompleteError;
+            _error = IncompleteError ?? L["Incomplete value"];
         }
         else if (_pattern is not null && !Regex.IsMatch(text, _pattern, RegexOptions.None, TimeSpan.FromSeconds(1)))
         {

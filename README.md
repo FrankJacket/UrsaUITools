@@ -34,3 +34,18 @@ dotnet add package Ursa.UITools
 ```
 
 Add `@using Ursa.UITools` to `_Imports.razor`. Scripts and styles are served automatically from `_content/Ursa.UITools/`; the app only needs MudBlazor set up as usual.
+
+
+## Languages
+The components speak the UI language of the request (the browser language, or whatever `UseRequestLocalization` selects). English is the source language and the fallback; French is included.
+
+Texts are written in English in the code, for example `L["Close"]`. Each text needs its translation in `src/Ursa.UITools/Localization/UrsaFrench.cs`, otherwise a test fails (so does a translation that nothing uses). Texts you can set yourself (`OkText`, `CloseButtonLabel`, `IncompleteError`, `PatternError`, `Label`...) are never translated when you provide them.
+
+In an application, declare the supported cultures so the browser language is picked up:
+
+```csharp
+string[] cultures = ["en-US", "fr-CA"];
+app.UseRequestLocalization(o => o.SetDefaultCulture("en-US").AddSupportedCultures(cultures).AddSupportedUICultures(cultures));
+```
+
+MudBlazor's own texts (for example the date picker's day names) follow the culture too, but its messages come from its own localization, not from this library.

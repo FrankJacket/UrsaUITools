@@ -57,9 +57,11 @@ public partial class UrsaFloatingDialog : MudComponentBase, IAsyncDisposable
     [Parameter]
     public bool ShowCloseButton { get; set; } = true;
 
-    /// <summary>Accessible label of the close button.</summary>
+    private static readonly UrsaLoc L = new();
+
+    /// <summary>Accessible label of the close button. Defaults to the translation of "Close".</summary>
     [Parameter]
-    public string CloseButtonLabel { get; set; } = "Close";
+    public string? CloseButtonLabel { get; set; }
 
     /// <summary>Closes the dialog when Escape is pressed while it has focus.</summary>
     [Parameter]
