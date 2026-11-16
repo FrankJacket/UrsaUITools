@@ -227,6 +227,6 @@ function refreshMode(state) {
     const { raw, before } = extract(options.mask, input.value, start, options.upper);
     const overwrite = input.selectionStart === input.selectionEnd && before < raw.length;
     input.classList.toggle('ursa-overwrite', overwrite);
-    input.style.caretShape = overwrite ? 'block' : '';
+    input.style.caretShape = overwrite ? 'bar' : '';
     input.style.caretColor = overwrite ? 'var(--mud-palette-primary)' : '';
 }

@@ -11,15 +11,44 @@
     in the middle only move over the character.
 </MudText>
 
+<MudText Class="mb-4">
+    <b>MaskType</b> picks a ready-made format and its validation: set it and the mask, the pattern and the error message are filled in.
+    Anything you set explicitly (<b>Mask</b>, <b>Pattern</b>, <b>PatternError</b>, <b>UpperCase</b>) wins over the preset.
+</MudText>
+
 <MudGrid>
     <MudItem xs="12" md="4">
-        <UrsaMaskedField @bind-Value="_phone" Mask="(000) 000-0000" Label="Phone" Placeholder="(514) 555-0123" Variant="Variant.Outlined" />
+        <UrsaMaskedField @bind-Value="_phone" MaskType="UrsaMaskType.PhoneNorthAmerica" Label="Phone (North America)" Placeholder="(514) 555-0123" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @(_phone ?? "(none)")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaMaskedField @bind-Value="_postal" Mask="a0a 0a0" UpperCase="true" Pattern="@(@"^[A-Z]\d[A-Z] \d[A-Z]\d$")"
-                         PatternError="Not a valid postal code" Label="Postal code (mask + regex)" Placeholder="H2X 1Y4" Variant="Variant.Outlined" />
+        <UrsaMaskedField @bind-Value="_phoneEu" MaskType="UrsaMaskType.PhoneEurope" Label="Phone (Europe)" Placeholder="+33 1 23 45 67 89" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_phoneEu ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_postal" MaskType="UrsaMaskType.PostalCodeCanada" Label="Postal code (Canada)" Placeholder="H2X 1Y4" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @(_postal ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_zip" MaskType="UrsaMaskType.ZipCodeUS" Label="ZIP code (United States)" Placeholder="90210" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_zip ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_email" MaskType="UrsaMaskType.Email" Label="Email" Placeholder="name@example.com" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_email ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_dateType" MaskType="UrsaMaskType.Date" Label="@($"Date ({CultureInfo.CurrentCulture.Name})")" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_dateType ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_dateTimeType" MaskType="UrsaMaskType.DateTime" Label="@($"Date and time ({CultureInfo.CurrentCulture.Name})")" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_dateTimeType ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_override" MaskType="UrsaMaskType.PostalCodeCanada" PatternError="Please enter a Canadian postal code"
+                         Label="Preset with an overridden error" Placeholder="H2X 1Y4" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_override ?? "(none)")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
         <UrsaMaskedField @bind-Value="_dateText" Mask="@UrsaMasks.Date(CultureInfo.CurrentCulture)" Validator="ValidateDate"
@@ -40,7 +69,13 @@
 
 @code {
     private string? _phone;
+    private string? _phoneEu;
     private string? _postal;
+    private string? _zip;
+    private string? _email;
+    private string? _dateType;
+    private string? _dateTimeType;
+    private string? _override;
     private string? _dateText;
     private string? _dateTimeText;
     private string? _iso = "2027-11-14";

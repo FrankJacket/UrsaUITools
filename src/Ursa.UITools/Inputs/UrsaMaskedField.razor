@@ -17,6 +17,8 @@
                   Required="@Required"
                   Error="@(_error is not null)"
                   ErrorText="@_error"
+                  InputType="@(MaskType == UrsaMaskType.Email ? InputType.Email : InputType.Text)"
                   Immediate="false"
-                  UserAttributes="@UserAttributes" />
+                  UserAttributes="@UserAttributes" 
+                  Clearable="@Clearable" />
 </div>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -42,8 +43,25 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
-    /// <summary>The mask, for example <c>00/00/0000</c> or <c>(000) 000-0000</c>.</summary>
-    [Parameter, EditorRequired]
+    private string _mask = "";
+    private string? _pattern;
+    private string _patternError = "Invalid value";
+    private bool _upper;
+    private Func<string, string?>? _presetValidator;
+
+    /// <summary>
+    /// A ready-made format. It supplies <see cref="Mask"/>, <see cref="Pattern"/>, <see cref="PatternError"/> and
+    /// <see cref="UpperCase"/> (and the date check for the date types); any of those you set explicitly wins over the preset.
+    /// </summary>
+    [Parameter]
+    public UrsaMaskType MaskType { get; set; } = UrsaMaskType.None;
+
+    /// <summary>The culture of <see cref="UrsaMaskType.Date"/> and <see cref="UrsaMaskType.DateTime"/>. Defaults to the current culture.</summary>
+    [Parameter]
+    public CultureInfo? Culture { get; set; }
+
+    /// <summary>The mask, for example <c>00/00/0000</c> or <c>(000) 000-0000</c>. Optional when <see cref="MaskType"/> is set.</summary>
+    [Parameter]
     public string Mask { get; set; } = "";
 
     /// <summary>The committed text (including the literals of the mask), or null when empty or invalid.</summary>
@@ -66,9 +84,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? Pattern { get; set; }
 
-    /// <summary>The error shown when <see cref="Pattern"/> does not match.</summary>
+    /// <summary>The error shown when <see cref="Pattern"/> does not match. Defaults to the message of <see cref="MaskType"/>.</summary>
     [Parameter]
-    public string PatternError { get; set; } = "Invalid value";
+    public string? PatternError { get; set; }
 
     /// <summary>The error shown when the mask is only partly filled.</summary>
     [Parameter]
@@ -109,6 +127,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <summary>Color of the adornment.</summary>
     [Parameter]
     public Color Color { get; set; } = Color.Default;
+    /// <summary>Indicates whether the field is clearable.</summary>
+    [Parameter]
+    public bool Clearable { get; set; } = false;
 
     /// <summary>Disables the field.</summary>
     [Parameter]
@@ -141,6 +162,13 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        var preset = UrsaMasks.ForType(MaskType, Culture);
+        _mask = string.IsNullOrEmpty(Mask) ? preset?.Mask ?? "" : Mask;
+        _pattern = Pattern ?? preset?.Pattern;
+        _patternError = PatternError ?? preset?.PatternError ?? "Invalid value";
+        _upper = UpperCase || preset?.UpperCase == true;
+        _presetValidator = preset?.Validator;
+
         // A value pushed by the parent replaces what is displayed.
         if (Value != _committed)
         {
@@ -154,7 +182,20 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var key = $"{Mask}|{UpperCase}|{CommitOn}";
+        if (_mask.Length == 0)
+        {
+            // No mask (for example an email): the field is a plain text field, with nothing attached in the browser.
+            _pendingSync = false;
+            if (_attachedKey is not null && _module is not null)
+            {
+                _attachedKey = null;
+                await _module.InvokeVoidAsync("detach", _wrapper);
+            }
+
+            return;
+        }
+
+        var key = $"{_mask}|{_upper}|{CommitOn}";
         if (_attachedKey == key && !_pendingSync)
         {
             return;
@@ -165,7 +206,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         _pendingSync = false;
         _module ??= await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
         _self ??= DotNetObjectReference.Create(this);
-        var options = new { mask = Mask, upper = UpperCase, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
+        var options = new { mask = _mask, upper = _upper, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
         await _module.InvokeVoidAsync(attach ? "attach" : "update", _wrapper, attach ? _self : options, attach ? options : null);
     }
 
@@ -174,7 +215,12 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
 
     private async Task CommitAsync(string text)
     {
-        var slots = Mask.Count(IsSlot);
+        if (_mask.Length == 0)
+        {
+            text = text.Trim();
+        }
+
+        var slots = _mask.Count(IsSlot);
         string? value = null;
         _error = null;
 
@@ -186,17 +232,15 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         {
             _error = IncompleteError;
         }
-        else if (Pattern is not null && !Regex.IsMatch(text, Pattern, RegexOptions.None, TimeSpan.FromSeconds(1)))
+        else if (_pattern is not null && !Regex.IsMatch(text, _pattern, RegexOptions.None, TimeSpan.FromSeconds(1)))
         {
-            _error = PatternError;
-        }
-        else if (Validator?.Invoke(text) is { } message)
-        {
-            _error = message;
+            _error = _patternError;
         }
         else
         {
-            value = text;
+            // the preset's own check first (dates), then the application's
+            _error = _presetValidator?.Invoke(text) ?? Validator?.Invoke(text);
+            value = _error is null ? text : null;
         }
 
         _text = text;
@@ -219,9 +263,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         foreach (var ch in text)
         {
             var isLiteral = false;
-            while (m < Mask.Length && !IsSlot(Mask[m]))
+            while (m < _mask.Length && !IsSlot(_mask[m]))
             {
-                if (Mask[m++] == ch)
+                if (_mask[m++] == ch)
                 {
                     isLiteral = true;
                     break;
@@ -233,7 +277,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
                 continue;
             }
 
-            if (m >= Mask.Length)
+            if (m >= _mask.Length)
             {
                 break;
             }

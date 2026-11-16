@@ -22,6 +22,40 @@ public static class UrsaMasks
     public static string? DateFormat(CultureInfo? culture = null, bool withTime = false) =>
         Analyse(culture, withTime)?.Normalized;
 
+    /// <summary>
+    /// The mask, validation pattern and error message of a <see cref="UrsaMaskType"/>, or null for
+    /// <see cref="UrsaMaskType.None"/>. <paramref name="culture"/> only matters for the date types and defaults to the current culture.
+    /// </summary>
+    public static UrsaMaskPreset? ForType(UrsaMaskType type, CultureInfo? culture = null) => type switch
+    {
+        UrsaMaskType.PhoneNorthAmerica => new("(000) 000-0000", @"^\([2-9]\d{2}\) [2-9]\d{2}-\d{4}$", "Not a valid phone number"),
+        UrsaMaskType.PhoneEurope => new("+00 0 00 00 00 00", @"^\+[34]\d \d \d{2} \d{2} \d{2} \d{2}$", "Not a valid European phone number"),
+        UrsaMaskType.PostalCodeCanada => new("a0a 0a0", @"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] \d[ABCEGHJ-NPRSTV-Z]\d$", "Not a valid postal code", UpperCase: true),
+        UrsaMaskType.ZipCodeUS => new("00000", @"^\d{5}$", "Not a valid ZIP code"),
+        UrsaMaskType.Email => new("", @"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$", "Not a valid email address"),
+        UrsaMaskType.Date =>DatePreset(culture, withTime: false),
+        UrsaMaskType.DateTime => DatePreset(culture, withTime: true),
+        _ => null,
+    };
+
+    private static UrsaMaskPreset DatePreset(CultureInfo? culture, bool withTime)
+    {
+        var current = culture ?? CultureInfo.CurrentCulture;
+        var mask = Date(current, withTime);
+        var format = DateFormat(current, withTime);
+        if (mask is null || format is null)
+        {
+            // The culture's pattern cannot be a fixed-width mask: fall back to ISO 8601.
+            current = CultureInfo.InvariantCulture;
+            mask = withTime ? "0000-00-00 00:00" : "0000-00-00";
+            format = withTime ? "yyyy-MM-dd HH:mm" : "yyyy-MM-dd";
+        }
+
+        var error = withTime ? "Not a valid date and time" : "Not a valid date";
+        return new(mask, null, error, UpperCase: true,
+            Validator: text => DateTime.TryParseExact(text, format, current, DateTimeStyles.None, out _) ? null : error);
+    }
+
     private static UrsaDatePattern? Analyse(CultureInfo? culture, bool withTime)
     {
         var info = (culture ?? CultureInfo.CurrentCulture).DateTimeFormat;
