@@ -26,6 +26,12 @@ public enum UrsaMaskCommit
 /// is inserted for you. Typing in the middle of a complete value overwrites, and Backspace/Delete in the middle
 /// only move over the character, so a value is never shifted or erased by accident.
 /// </para>
+/// <para>
+/// For a value with no fixed width (for example an IPv4 address, whose octets are 1 to 3 digits each), use
+/// <see cref="RegexPattern"/> and <see cref="DelimiterCharacters"/> instead of <see cref="Mask"/>: typing is
+/// constrained character by character against a prefix-matching regular expression, which also inserts the
+/// delimiters automatically.
+/// </para>
 /// </summary>
 public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
 {
@@ -45,6 +51,8 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
 
     private string _mask = "";
     private string? _pattern;
+    private string? _regexPattern;
+    private string _delimiters = "";
     private static readonly UrsaLoc L = new();
 
     private string _patternError = "";
@@ -85,6 +93,22 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <summary>A regular expression the complete value must match, such as <c>^[A-Z]\d[A-Z] \d[A-Z]\d$</c>.</summary>
     [Parameter]
     public string? Pattern { get; set; }
+
+    /// <summary>
+    /// A regular expression that also matches the partial (prefix) values typed along the way, used instead of
+    /// <see cref="Mask"/> to constrain typing in real time when the value has no fixed width, for example an IPv4
+    /// address whose octets are 1 to 3 digits each. Each character typed is accepted only if the text so far plus
+    /// that character still matches; otherwise the first character of <see cref="DelimiterCharacters"/> that makes
+    /// it match again is inserted automatically (so typing "192168" becomes "192.168" on its own), and failing that
+    /// the character is silently ignored. <see cref="Pattern"/> still does the final check, against the complete
+    /// value, when the field is committed.
+    /// </summary>
+    [Parameter]
+    public string? RegexPattern { get; set; }
+
+    /// <summary>The characters <see cref="RegexPattern"/> inserts automatically as the value is typed, for example <c>"."</c> for an IPv4 address.</summary>
+    [Parameter]
+    public string? DelimiterCharacters { get; set; }
 
     /// <summary>The error shown when <see cref="Pattern"/> does not match. Defaults to the message of <see cref="MaskType"/>.</summary>
     [Parameter]
@@ -167,6 +191,8 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         var preset = UrsaMasks.ForType(MaskType, Culture);
         _mask = string.IsNullOrEmpty(Mask) ? preset?.Mask ?? "" : Mask;
         _pattern = Pattern ?? preset?.Pattern;
+        _regexPattern = RegexPattern ?? preset?.RegexPattern;
+        _delimiters = DelimiterCharacters ?? preset?.Delimiters ?? "";
         _patternError = PatternError ?? preset?.PatternError ?? L["Invalid value"];
         _upper = UpperCase || preset?.UpperCase == true;
         _presetValidator = preset?.Validator;
@@ -184,9 +210,10 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_mask.Length == 0)
+        var useRegex = _mask.Length == 0 && !string.IsNullOrEmpty(_regexPattern);
+        if (_mask.Length == 0 && !useRegex)
         {
-            // No mask (for example an email): the field is a plain text field, with nothing attached in the browser.
+            // No mask and no regex (for example an email): a plain text field, with nothing attached in the browser.
             _pendingSync = false;
             if (_attachedKey is not null && _module is not null)
             {
@@ -197,7 +224,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
             return;
         }
 
-        var key = $"{_mask}|{_upper}|{CommitOn}";
+        var key = useRegex ? $"regex|{_regexPattern}|{_delimiters}|{_upper}" : $"mask|{_mask}|{_upper}|{CommitOn}";
         if (_attachedKey == key && !_pendingSync)
         {
             return;
@@ -208,7 +235,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         _pendingSync = false;
         _module ??= await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
         _self ??= DotNetObjectReference.Create(this);
-        var options = new { mask = _mask, upper = _upper, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
+        object options = useRegex
+            ? new { mode = "regex", regex = _regexPattern, delimiters = _delimiters, upper = _upper }
+            : new { mode = "mask", mask = _mask, upper = _upper, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
         await _module.InvokeVoidAsync(attach ? "attach" : "update", _wrapper, attach ? _self : options, attach ? options : null);
     }
 

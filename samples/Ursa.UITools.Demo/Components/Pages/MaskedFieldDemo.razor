@@ -65,7 +65,17 @@
         <UrsaMaskedField @bind-Value="_iso" Mask="0000-00-00" Label="ISO date (yyyy-MM-dd), prefilled" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @(_iso ?? "(none)")</MudText>
     </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_ip" MaskType="UrsaMaskType.Ipv4" Label="IPv4 address" Placeholder="192.168.1.1" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_ip ?? "(none)")</MudText>
+    </MudItem>
 </MudGrid>
+
+<MudText Class="mt-4">
+    <b>Ipv4</b> has no fixed width (an octet is 1 to 3 digits), so it has no <b>Mask</b>: typing is constrained in real time by
+    <b>RegexPattern</b> and <b>DelimiterCharacters</b>, which insert the "." separators automatically as you type (e.g. typing
+    "192168" becomes "192.168" on its own). Use these two parameters directly for a custom value shaped the same way.
+</MudText>
 
 @code {
     private string? _phone;
@@ -79,6 +89,7 @@
     private string? _dateText;
     private string? _dateTimeText;
     private string? _iso = "2027-11-14";
+    private string? _ip;
 
     private static string? ValidateDate(string text) => Validate(text, UrsaMasks.DateFormat(CultureInfo.CurrentCulture));
 

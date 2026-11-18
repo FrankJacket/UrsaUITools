@@ -22,6 +22,13 @@ public enum UrsaMaskType
     ZipCodeUS,
 
     /// <summary>
+    /// IPv4 address: <c>192.168.1.1</c>. Each octet is 1 to 3 digits, so it has no fixed width: typing is
+    /// constrained in real time by <see cref="UrsaMaskedField.RegexPattern"/> (which also inserts the <c>.</c>
+    /// separators) instead of a fixed <see cref="UrsaMaskedField.Mask"/>.
+    /// </summary>
+    Ipv4,
+
+    /// <summary>
     /// Email address: <c>name@example.com</c>. An address has no fixed width, so there is no input mask: the field is a plain
     /// email field (email keyboard on mobile) checked when it is committed. Surrounding spaces are trimmed.
     /// </summary>

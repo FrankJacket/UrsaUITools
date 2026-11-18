@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>Ursa.UITools</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>FrankJacket</Authors>
     <Description>Visual component extensions for MudBlazor.</Description>
     <PackageTags>blazor;mudblazor;components</PackageTags>

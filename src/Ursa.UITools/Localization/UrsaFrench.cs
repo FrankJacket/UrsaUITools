@@ -18,6 +18,7 @@ internal static class UrsaFrench
         ["Not a valid European phone number"] = "Numéro de téléphone européen invalide",
         ["Not a valid postal code"] = "Code postal invalide",
         ["Not a valid ZIP code"] = "Code ZIP invalide",
+        ["Not a valid IPv4 address"] = "Adresse IPv4 invalide",
         ["Not a valid email address"] = "Adresse courriel invalide",
         ["Not a valid date"] = "Date invalide",
         ["Not a valid date and time"] = "Date et heure invalides",

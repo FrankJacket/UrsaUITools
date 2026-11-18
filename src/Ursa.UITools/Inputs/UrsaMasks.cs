@@ -7,6 +7,9 @@ public static class UrsaMasks
 {
     private static readonly UrsaLoc L = new();
 
+    // An IPv4 octet, 0-255, no leading zeros beyond a single "0".
+    private const string Octet = @"(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)";
+
     /// <summary>
     /// The mask of a date (and optionally time) in the format of <paramref name="culture"/>, for example
     /// <c>00/00/0000</c> in fr-FR or <c>00/00/0000 00:00 aa</c> in en-US with time. Returns null when the culture's
@@ -34,6 +37,9 @@ public static class UrsaMasks
         UrsaMaskType.PhoneEurope => new("+00 0 00 00 00 00", @"^\+[34]\d \d \d{2} \d{2} \d{2} \d{2}$", L["Not a valid European phone number"]),
         UrsaMaskType.PostalCodeCanada => new("a0a 0a0", @"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] \d[ABCEGHJ-NPRSTV-Z]\d$", L["Not a valid postal code"], UpperCase: true),
         UrsaMaskType.ZipCodeUS => new("00000", @"^\d{5}$", L["Not a valid ZIP code"]),
+        UrsaMaskType.Ipv4 => new("", @"^" + Octet + @"(?:\." + Octet + @"){3}$", L["Not a valid IPv4 address"],
+            RegexPattern: @"^(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})(?:\.(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})){0,3}(?!\s)$",
+            Delimiters: "."),
         UrsaMaskType.Email => new("", @"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$", L["Not a valid email address"]),
         UrsaMaskType.Date =>DatePreset(culture, withTime: false),
         UrsaMaskType.DateTime => DatePreset(culture, withTime: true),

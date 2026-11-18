@@ -67,6 +67,42 @@ public class UrsaMaskPresetTests
     public void ZipCodeUS(string text, bool expected) => Assert.Equal(expected, Matches(UrsaMaskType.ZipCodeUS, text));
 
     [Theory]
+    [InlineData("192.168.1.1", true)]
+    [InlineData("0.0.0.0", true)]
+    [InlineData("255.255.255.255", true)]
+    [InlineData("256.1.1.1", false)]      // out of range
+    [InlineData("192.168.1", false)]     // only 3 octets
+    [InlineData("192.168.1.1.1", false)] // 5 octets
+    [InlineData("192.168.1.", false)]    // trailing dot
+    public void Ipv4(string text, bool expected) => Assert.Equal(expected, Matches(UrsaMaskType.Ipv4, text));
+
+    [Fact]
+    public void Ipv4_HasNoFixedMaskButHasARegexPattern()
+    {
+        var preset = UrsaMasks.ForType(UrsaMaskType.Ipv4)!;
+
+        Assert.Equal("", preset.Mask);
+        Assert.Equal(".", preset.Delimiters);
+        Assert.NotNull(preset.RegexPattern);
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("1", true)]
+    [InlineData("192", true)]
+    [InlineData("192.", true)]
+    [InlineData("192.168.1.1", true)]  // a complete value is still a valid prefix
+    [InlineData("256", false)]         // no octet can start this way
+    [InlineData("192.256", false)]
+    [InlineData("192.168.1.1.", false)] // a 5th octet cannot start
+    public void Ipv4_RegexPatternAlsoMatchesPartialValues(string text, bool expected)
+    {
+        var preset = UrsaMasks.ForType(UrsaMaskType.Ipv4)!;
+
+        Assert.Equal(expected, Regex.IsMatch(text, preset.RegexPattern!));
+    }
+
+    [Theory]
     [InlineData("fr-CA")]
     [InlineData("fr-FR")]
     [InlineData("en-US")]

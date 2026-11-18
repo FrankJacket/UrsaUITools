@@ -1,7 +1,12 @@
 // Input mask for UrsaMaskedField. The whole editing logic runs in the browser: Blazor only hears about the
 // value when it is committed (blur, Enter, or as soon as the mask is complete), never on each key stroke.
 //
-// Mask syntax: 0 = digit, a = letter, * = any character; every other character is a literal.
+// Two mutually exclusive modes, chosen per field by options.mode:
+// - 'mask' (the default): fixed-width mask, 0 = digit, a = letter, * = any character; every other character is
+//   a literal.
+// - 'regex': a prefix-matching regular expression constrains typing when the value has no fixed width (for
+//   example an IPv4 address, whose octets are 1 to 3 digits each), ported from MudBlazor's RegexMask
+//   (MudBlazor.Utilities.MaskAlgorithms.RegexMask, MIT licensed).
 
 const isSlot = c => c === '0' || c === 'a' || c === '*';
 
@@ -66,6 +71,118 @@ export function caretFor(layout, raw, count) {
     if (count <= 0) return 0;
     if (count < raw.length) return layout.ends[count] - 1;
     return layout.ends[count - 1];
+}
+
+// --- 'regex' mode: a prefix-matching regular expression, with delimiters auto-inserted. ---
+
+// Splits a text into its significant characters (everything that isn't one of the delimiters), ignoring position,
+// and how many of them sit before the caret. Delimiters are only ever inserted by alignRegex below, so a value
+// never has one in a position alignRegex itself would not have put it.
+export function extractRegex(delimiters, text, caret) {
+    const raw = [];
+    let before = 0;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (delimiters.includes(ch)) continue;
+        raw.push(ch);
+        if (i < caret) before++;
+    }
+    return { raw, before };
+}
+
+// Rebuilds a valid value from a stream of significant characters (digits, letters...), the same way MudBlazor's
+// RegexMask aligns text against its mask: each character is appended only if the text so far plus that character
+// still matches `regex`; failing that, the first delimiter that makes it match again is inserted before it;
+// failing that too, the character is dropped. Returns the rebuilt text, the index in `text` right after each
+// surviving character (ends[k]), and which original indices of `raw` survived (acceptedIdx).
+export function alignRegex(regex, delimiters, raw) {
+    let text = '';
+    const ends = [];
+    const acceptedIdx = [];
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (regex.test(text + ch)) {
+            text += ch;
+        } else {
+            let inserted = false;
+            for (const d of delimiters) {
+                if (regex.test(text + d + ch)) {
+                    text += d + ch;
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) continue;
+        }
+        acceptedIdx.push(i);
+        ends.push(text.length);
+    }
+    return { text, ends, acceptedIdx };
+}
+
+// Caret index to use after `count` significant characters (of the original raw stream passed to alignRegex) have
+// been accepted at or before the edit point.
+function caretForRegex(aligned, count) {
+    if (count <= 0) return 0;
+    let n = 0;
+    for (let k = 0; k < aligned.acceptedIdx.length; k++) {
+        if (aligned.acceptedIdx[k] >= count) break;
+        n = k + 1;
+    }
+    return n > 0 ? aligned.ends[n - 1] : 0;
+}
+
+function renderRegex(state, raw, caretRawCount) {
+    const { input, options } = state;
+    const regex = options.compiled ??= new RegExp(options.regex, 'u');
+    const aligned = alignRegex(regex, options.delimiters, raw);
+    if (input.value !== aligned.text) input.value = aligned.text;
+    const caret = caretForRegex(aligned, caretRawCount);
+    input.setSelectionRange(caret, caret);
+    return aligned.text;
+}
+
+function onBeforeInputRegex(state, e) {
+    if (e.isComposing) return;
+    const { input, options } = state;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? start;
+    const collapsed = start === end;
+    const type = e.inputType;
+    const { raw, before: b } = extractRegex(options.delimiters, input.value, start);
+    const { before: bEnd } = extractRegex(options.delimiters, input.value, end);
+
+    if (type === 'insertText' && e.data) {
+        e.preventDefault();
+        const chars = raw.slice(0, b).concat(raw.slice(bEnd));
+        let pos = b;
+        for (const ch of e.data) {
+            chars.splice(pos, 0, options.upper ? ch.toUpperCase() : ch);
+            pos++;
+        }
+        renderRegex(state, chars, pos);
+        return;
+    }
+
+    if (type === 'deleteContentBackward' || type === 'deleteContentForward') {
+        e.preventDefault();
+        if (!collapsed) {
+            renderRegex(state, raw.slice(0, b).concat(raw.slice(bEnd)), b);
+            return;
+        }
+        if (type === 'deleteContentBackward') {
+            if (b > 0) renderRegex(state, raw.slice(0, b - 1).concat(raw.slice(b)), b - 1);
+        } else if (b < raw.length) {
+            renderRegex(state, raw.slice(0, b).concat(raw.slice(b + 1)), b);
+        }
+    }
+}
+
+// Paste, cut, drag and drop, autofill...: let the browser edit, then realign.
+function onInputRegex(state) {
+    const { input, options } = state;
+    const { raw, before } = extractRegex(options.delimiters, input.value, input.selectionStart ?? input.value.length);
+    renderRegex(state, raw, before);
 }
 
 const states = new WeakMap();
@@ -169,8 +286,8 @@ export function attach(element, dotNetRef, options) {
     detach(input);
     const state = { input, dotNetRef, options, lastNotified: input.value };
     state.handlers = {
-        beforeinput: e => onBeforeInput(state, e),
-        input: () => onInput(state),
+        beforeinput: e => (state.options.mode === 'regex' ? onBeforeInputRegex : onBeforeInput)(state, e),
+        input: () => (state.options.mode === 'regex' ? onInputRegex : onInput)(state),
         blur: () => onBlur(state),
         keydown: e => onKeyDown(state, e),
         keyup: () => refreshMode(state),
@@ -193,8 +310,15 @@ export function update(element, options) {
     const state = input && states.get(input);
     if (!state) return;
     state.options = options;
-    const { raw } = extract(options.mask, input.value, 0, options.upper);
-    const text = format(options.mask, raw).text;
+    let text;
+    if (options.mode === 'regex') {
+        const regex = options.compiled ??= new RegExp(options.regex, 'u');
+        const { raw } = extractRegex(options.delimiters, input.value, 0);
+        text = alignRegex(regex, options.delimiters, raw).text;
+    } else {
+        const { raw } = extract(options.mask, input.value, 0, options.upper);
+        text = format(options.mask, raw).text;
+    }
     if (input.value !== text) input.value = text;
     state.lastNotified = input.value;
 }
@@ -223,9 +347,12 @@ export function detachById(id) {
 // ursa-overwrite.
 function refreshMode(state) {
     const { input, options } = state;
-    const start = input.selectionStart ?? 0;
-    const { raw, before } = extract(options.mask, input.value, start, options.upper);
-    const overwrite = input.selectionStart === input.selectionEnd && before < raw.length;
+    // 'regex' mode always inserts (there is no fixed slot to overwrite).
+    const overwrite = options.mode !== 'regex' && (() => {
+        const start = input.selectionStart ?? 0;
+        const { raw, before } = extract(options.mask, input.value, start, options.upper);
+        return input.selectionStart === input.selectionEnd && before < raw.length;
+    })();
     input.classList.toggle('ursa-overwrite', overwrite);
     input.style.caretShape = overwrite ? 'bar' : '';
     input.style.caretColor = overwrite ? 'var(--mud-palette-primary)' : '';
