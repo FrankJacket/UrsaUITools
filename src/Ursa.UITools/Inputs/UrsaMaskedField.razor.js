@@ -1,12 +1,14 @@
 // Input mask for UrsaMaskedField. The whole editing logic runs in the browser: Blazor only hears about the
 // value when it is committed (blur, Enter, or as soon as the mask is complete), never on each key stroke.
 //
-// Two mutually exclusive modes, chosen per field by options.mode:
+// Three mutually exclusive modes, chosen per field by options.mode:
 // - 'mask' (the default): fixed-width mask, 0 = digit, a = letter, * = any character; every other character is
 //   a literal.
 // - 'regex': a prefix-matching regular expression constrains typing when the value has no fixed width (for
 //   example an IPv4 address, whose octets are 1 to 3 digits each), ported from MudBlazor's RegexMask
 //   (MudBlazor.Utilities.MaskAlgorithms.RegexMask, MIT licensed).
+// - 'decimal': a culture-aware decimal number: digits are grouped by thousands and separated with the culture's
+//   own decimal/group separators (and, for a currency format, its currency symbol) as you type.
 
 const isSlot = c => c === '0' || c === 'a' || c === '*';
 
@@ -75,33 +77,26 @@ export function caretFor(layout, raw, count) {
 
 // --- 'regex' mode: a prefix-matching regular expression, with delimiters auto-inserted. ---
 
-// Splits a text into its significant characters (everything that isn't one of the delimiters), ignoring position,
-// and how many of them sit before the caret. Delimiters are only ever inserted by alignRegex below, so a value
-// never has one in a position alignRegex itself would not have put it.
-export function extractRegex(delimiters, text, caret) {
-    const raw = [];
-    let before = 0;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (delimiters.includes(ch)) continue;
-        raw.push(ch);
-        if (i < caret) before++;
-    }
-    return { raw, before };
-}
-
-// Rebuilds a valid value from a stream of significant characters (digits, letters...), the same way MudBlazor's
-// RegexMask aligns text against its mask: each character is appended only if the text so far plus that character
-// still matches `regex`; failing that, the first delimiter that makes it match again is inserted before it;
-// failing that too, the character is dropped. Returns the rebuilt text, the index in `text` right after each
-// surviving character (ends[k]), and which original indices of `raw` survived (acceptedIdx).
+// Rebuilds a valid value from a stream of characters (digits, letters, and possibly delimiters the user typed
+// themselves), the same way MudBlazor's RegexMask aligns text against its mask:
+// - A delimiter character (for example "."), wherever it came from, is kept only if the text so far plus that
+//   delimiter still matches `regex` - this is what lets the user type the delimiters themselves (e.g. "192.168.5.2"
+//   typed literally): a typed delimiter always closes off whatever came before it, it is never merged into it.
+// - Any other character is appended if the text so far plus that character still matches `regex`; failing that,
+//   the first delimiter that makes it match again is inserted before it (so "192168" becomes "192.168" on its
+//   own); failing that too, the character is dropped.
+// Returns the rebuilt text, the index in `text` right after each surviving character (ends[k]), and which
+// original indices of `raw` survived (acceptedIdx).
 export function alignRegex(regex, delimiters, raw) {
     let text = '';
     const ends = [];
     const acceptedIdx = [];
     for (let i = 0; i < raw.length; i++) {
         const ch = raw[i];
-        if (regex.test(text + ch)) {
+        if (delimiters.includes(ch)) {
+            if (!regex.test(text + ch)) continue;
+            text += ch;
+        } else if (regex.test(text + ch)) {
             text += ch;
         } else {
             let inserted = false;
@@ -120,9 +115,9 @@ export function alignRegex(regex, delimiters, raw) {
     return { text, ends, acceptedIdx };
 }
 
-// Caret index to use after `count` significant characters (of the original raw stream passed to alignRegex) have
-// been accepted at or before the edit point.
-function caretForRegex(aligned, count) {
+// Caret index to use after `count` significant characters (of the original raw stream passed to alignRegex or
+// alignDecimal) have been accepted at or before the edit point.
+function caretForAligned(aligned, count) {
     if (count <= 0) return 0;
     let n = 0;
     for (let k = 0; k < aligned.acceptedIdx.length; k++) {
@@ -137,7 +132,7 @@ function renderRegex(state, raw, caretRawCount) {
     const regex = options.compiled ??= new RegExp(options.regex, 'u');
     const aligned = alignRegex(regex, options.delimiters, raw);
     if (input.value !== aligned.text) input.value = aligned.text;
-    const caret = caretForRegex(aligned, caretRawCount);
+    const caret = caretForAligned(aligned, caretRawCount);
     input.setSelectionRange(caret, caret);
     return aligned.text;
 }
@@ -149,13 +144,12 @@ function onBeforeInputRegex(state, e) {
     const end = input.selectionEnd ?? start;
     const collapsed = start === end;
     const type = e.inputType;
-    const { raw, before: b } = extractRegex(options.delimiters, input.value, start);
-    const { before: bEnd } = extractRegex(options.delimiters, input.value, end);
+    const raw = Array.from(input.value);
 
     if (type === 'insertText' && e.data) {
         e.preventDefault();
-        const chars = raw.slice(0, b).concat(raw.slice(bEnd));
-        let pos = b;
+        const chars = raw.slice(0, start).concat(raw.slice(end));
+        let pos = start;
         for (const ch of e.data) {
             chars.splice(pos, 0, options.upper ? ch.toUpperCase() : ch);
             pos++;
@@ -167,22 +161,145 @@ function onBeforeInputRegex(state, e) {
     if (type === 'deleteContentBackward' || type === 'deleteContentForward') {
         e.preventDefault();
         if (!collapsed) {
-            renderRegex(state, raw.slice(0, b).concat(raw.slice(bEnd)), b);
+            renderRegex(state, raw.slice(0, start).concat(raw.slice(end)), start);
             return;
         }
         if (type === 'deleteContentBackward') {
-            if (b > 0) renderRegex(state, raw.slice(0, b - 1).concat(raw.slice(b)), b - 1);
-        } else if (b < raw.length) {
-            renderRegex(state, raw.slice(0, b).concat(raw.slice(b + 1)), b);
+            if (start > 0) renderRegex(state, raw.slice(0, start - 1).concat(raw.slice(start)), start - 1);
+        } else if (start < raw.length) {
+            renderRegex(state, raw.slice(0, start).concat(raw.slice(start + 1)), start);
         }
     }
 }
 
 // Paste, cut, drag and drop, autofill...: let the browser edit, then realign.
 function onInputRegex(state) {
+    const { input } = state;
+    const caret = input.selectionStart ?? input.value.length;
+    renderRegex(state, Array.from(input.value), caret);
+}
+
+// --- 'decimal' mode: a plain number while typing (digits, sign, decimal separator - no grouping, no currency
+// symbol: those only ever show up in the formatted value the server sends back once the field is committed, so
+// the caret always lands on a real character and a single keystroke never fights a separator that just moved). ---
+
+// Normalizes a freshly typed character to what alignDecimal understands: any decimal-point key ("." or ",")
+// becomes the culture's own decimal separator, so typing either always lands on the right character.
+function normalizeDecimalChar(ch, options) {
+    if (ch === options.decimalSeparator || ch === '-' || (ch >= '0' && ch <= '9')) return ch;
+    if (ch === '.' || ch === ',') return options.decimalSeparator;
+    return null;
+}
+
+// Extracts the significant characters already in `text` (digits, sign, the culture's own decimal separator) and
+// how many sit before the caret, the same way `extract` does for a fixed mask.
+export function extractDecimal(text, caret, options) {
+    const raw = [];
+    let before = 0;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const significant = (ch >= '0' && ch <= '9') || ch === '-' || ch === options.decimalSeparator;
+        if (!significant) continue;
+        raw.push(ch);
+        if (i < caret) before++;
+    }
+    return { raw, before };
+}
+
+function renderDecimalText(negative, intDigits, hasDecimal, fracDigits, options) {
+    let text = negative ? '-' : '';
+    text += intDigits.join('');
+    if (hasDecimal) text += options.decimalSeparator + fracDigits.join('');
+    return text;
+}
+
+// Rebuilds a valid decimal display from a stream of significant characters (as extractDecimal returns): the sign
+// only as the very first character, at most one decimal separator, and at most options.maxFractionDigits digits
+// after it; anything else is dropped. Returns the rebuilt text, the index in `text` right after each surviving
+// character (ends[k]), and which original indices of `raw` survived (acceptedIdx) - the same shape alignRegex
+// returns, for the same caret-placement technique.
+export function alignDecimal(raw, options) {
+    let negative = false;
+    let hasDecimal = false;
+    let started = false;
+    const intDigits = [];
+    const fracDigits = [];
+    const acceptedIdx = [];
+    const ends = [];
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        let accept = false;
+        if (ch === '-') {
+            if (!started && options.allowNegative) { negative = true; accept = true; }
+        } else if (ch === options.decimalSeparator) {
+            if (!hasDecimal && options.maxFractionDigits > 0) { hasDecimal = true; accept = true; }
+        } else {
+            if (hasDecimal) {
+                if (fracDigits.length < options.maxFractionDigits) { fracDigits.push(ch); accept = true; }
+            } else {
+                intDigits.push(ch); accept = true;
+            }
+        }
+        if (!accept) continue;
+        started = true;
+        acceptedIdx.push(i);
+        ends.push(renderDecimalText(negative, intDigits, hasDecimal, fracDigits, options).length);
+    }
+    return { text: renderDecimalText(negative, intDigits, hasDecimal, fracDigits, options), ends, acceptedIdx };
+}
+
+function renderDecimal(state, raw, caretRawCount) {
     const { input, options } = state;
-    const { raw, before } = extractRegex(options.delimiters, input.value, input.selectionStart ?? input.value.length);
-    renderRegex(state, raw, before);
+    const aligned = alignDecimal(raw, options);
+    if (input.value !== aligned.text) input.value = aligned.text;
+    const caret = caretForAligned(aligned, caretRawCount); // same ends/acceptedIdx shape as alignRegex
+    input.setSelectionRange(caret, caret);
+    return aligned.text;
+}
+
+function onBeforeInputDecimal(state, e) {
+    if (e.isComposing) return;
+    const { input, options } = state;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? start;
+    const collapsed = start === end;
+    const type = e.inputType;
+    const { raw, before: b } = extractDecimal(input.value, start, options);
+    const { before: bEnd } = extractDecimal(input.value, end, options);
+
+    if (type === 'insertText' && e.data) {
+        e.preventDefault();
+        const chars = raw.slice(0, b).concat(raw.slice(bEnd));
+        let pos = b;
+        for (const ch of e.data) {
+            const mapped = normalizeDecimalChar(ch, options);
+            if (mapped === null) continue;
+            chars.splice(pos, 0, mapped);
+            pos++;
+        }
+        renderDecimal(state, chars, pos);
+        return;
+    }
+
+    if (type === 'deleteContentBackward' || type === 'deleteContentForward') {
+        e.preventDefault();
+        if (!collapsed) {
+            renderDecimal(state, raw.slice(0, b).concat(raw.slice(bEnd)), b);
+            return;
+        }
+        if (type === 'deleteContentBackward') {
+            if (b > 0) renderDecimal(state, raw.slice(0, b - 1).concat(raw.slice(b)), b - 1);
+        } else if (b < raw.length) {
+            renderDecimal(state, raw.slice(0, b).concat(raw.slice(b + 1)), b);
+        }
+    }
+}
+
+// Paste, cut, drag and drop, autofill...: let the browser edit, then realign.
+function onInputDecimal(state) {
+    const { input, options } = state;
+    const { raw, before } = extractDecimal(input.value, input.selectionStart ?? input.value.length, options);
+    renderDecimal(state, raw, before);
 }
 
 const states = new WeakMap();
@@ -274,6 +391,14 @@ function onKeyDown(state, e) {
     if (e.key === 'Enter') notify(state, state.input.value, false);
 }
 
+function beforeInputHandler(mode) {
+    return mode === 'regex' ? onBeforeInputRegex : mode === 'decimal' ? onBeforeInputDecimal : onBeforeInput;
+}
+
+function inputHandler(mode) {
+    return mode === 'regex' ? onInputRegex : mode === 'decimal' ? onInputDecimal : onInput;
+}
+
 // The element is either the input itself or a container holding it; states are keyed by the input.
 function resolve(element) {
     if (!element) return null;
@@ -286,8 +411,8 @@ export function attach(element, dotNetRef, options) {
     detach(input);
     const state = { input, dotNetRef, options, lastNotified: input.value };
     state.handlers = {
-        beforeinput: e => (state.options.mode === 'regex' ? onBeforeInputRegex : onBeforeInput)(state, e),
-        input: () => (state.options.mode === 'regex' ? onInputRegex : onInput)(state),
+        beforeinput: e => beforeInputHandler(state.options.mode)(state, e),
+        input: () => inputHandler(state.options.mode)(state),
         blur: () => onBlur(state),
         keydown: e => onKeyDown(state, e),
         keyup: () => refreshMode(state),
@@ -313,8 +438,10 @@ export function update(element, options) {
     let text;
     if (options.mode === 'regex') {
         const regex = options.compiled ??= new RegExp(options.regex, 'u');
-        const { raw } = extractRegex(options.delimiters, input.value, 0);
-        text = alignRegex(regex, options.delimiters, raw).text;
+        text = alignRegex(regex, options.delimiters, Array.from(input.value)).text;
+    } else if (options.mode === 'decimal') {
+        const { raw } = extractDecimal(input.value, 0, options);
+        text = alignDecimal(raw, options).text;
     } else {
         const { raw } = extract(options.mask, input.value, 0, options.upper);
         text = format(options.mask, raw).text;
@@ -342,13 +469,30 @@ export function detachById(id) {
     detach(document.getElementById(id));
 }
 
+// Forces the input to show `text`, bypassing Blazor's own diffing. 'decimal' mode needs this right after a commit:
+// the server re-formats the committed value (e.g. "19599.90" becomes "$19,599.90"), but if that exact formatted
+// string was already the last one Blazor rendered for this field (a prior commit, say), Blazor's diff sees no
+// change in the Value parameter and skips updating the DOM - even though the live text, which only JS had been
+// touching since then, is the stripped-down typing form, not the formatted one.
+export function setText(element, text) {
+    const input = resolve(element);
+    if (!input) return;
+    if (input.value !== text) input.value = text;
+    const state = states.get(input);
+    if (state) state.lastNotified = text;
+}
+
+export function setTextById(id, text) {
+    setText(document.getElementById(id), text);
+}
+
 // Overwrite mode is on while the caret sits before a character: typing replaces it. The caret becomes a block
 // (browsers that support caret-shape) in the primary color of the MudBlazor theme, and the input gets the class
 // ursa-overwrite.
 function refreshMode(state) {
     const { input, options } = state;
-    // 'regex' mode always inserts (there is no fixed slot to overwrite).
-    const overwrite = options.mode !== 'regex' && (() => {
+    // 'regex' and 'decimal' modes always insert (there is no fixed slot to overwrite).
+    const overwrite = options.mode === 'mask' && (() => {
         const start = input.selectionStart ?? 0;
         const { raw, before } = extract(options.mask, input.value, start, options.upper);
         return input.selectionStart === input.selectionEnd && before < raw.length;

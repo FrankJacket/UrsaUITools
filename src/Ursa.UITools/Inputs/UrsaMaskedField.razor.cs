@@ -28,9 +28,16 @@ public enum UrsaMaskCommit
 /// </para>
 /// <para>
 /// For a value with no fixed width (for example an IPv4 address, whose octets are 1 to 3 digits each), use
-/// <see cref="RegexPattern"/> and <see cref="DelimiterCharacters"/> instead of <see cref="Mask"/>: typing is
+/// <see cref="RegExMask"/> and <see cref="DelimiterCharacters"/> instead of <see cref="Mask"/>: typing is
 /// constrained character by character against a prefix-matching regular expression, which also inserts the
 /// delimiters automatically.
+/// </para>
+/// <para>
+/// For a decimal number, set <see cref="MaskType"/> to <see cref="UrsaMaskType.Decimal"/>: while typing, only the
+/// decimal separator of <see cref="Culture"/> (whichever of <c>.</c> or <c>,</c> you actually press) and the
+/// number of fraction digits <see cref="Format"/> allows are enforced - no thousands grouping and no currency
+/// symbol, so editing mid-value never fights a separator that just moved. The full formatting (grouping, and for
+/// <c>C</c> the currency symbol) is applied once, when the value is committed.
 /// </para>
 /// </summary>
 public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
@@ -50,23 +57,29 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     private IJSRuntime JS { get; set; } = default!;
 
     private string _mask = "";
-    private string? _pattern;
-    private string? _regexPattern;
+    private string? _regExMatch;
+    private string? _regExMask;
     private string _delimiters = "";
+    private UrsaDecimalFormat? _decimalFormat;
+    private CultureInfo _culture = CultureInfo.CurrentCulture;
     private static readonly UrsaLoc L = new();
 
-    private string _patternError = "";
+    private string _regExMatchError = "";
     private bool _upper;
     private Func<string, string?>? _presetValidator;
 
     /// <summary>
-    /// A ready-made format. It supplies <see cref="Mask"/>, <see cref="Pattern"/>, <see cref="PatternError"/> and
-    /// <see cref="UpperCase"/> (and the date check for the date types); any of those you set explicitly wins over the preset.
+    /// A ready-made format. It supplies <see cref="Mask"/>, <see cref="RegExMatch"/>, <see cref="RegExMatchError"/> and
+    /// <see cref="UpperCase"/> (and the date/decimal checks for those types); any of those you set explicitly wins over the preset.
     /// </summary>
     [Parameter]
     public UrsaMaskType MaskType { get; set; } = UrsaMaskType.None;
 
-    /// <summary>The culture of <see cref="UrsaMaskType.Date"/> and <see cref="UrsaMaskType.DateTime"/>. Defaults to the current culture.</summary>
+    /// <summary>
+    /// The culture of <see cref="UrsaMaskType.Date"/>, <see cref="UrsaMaskType.DateTime"/> and
+    /// <see cref="UrsaMaskType.Decimal"/> (its separators and, for the <c>C</c> <see cref="Format"/>, its currency
+    /// symbol). Defaults to the current culture.
+    /// </summary>
     [Parameter]
     public CultureInfo? Culture { get; set; }
 
@@ -92,7 +105,7 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
 
     /// <summary>A regular expression the complete value must match, such as <c>^[A-Z]\d[A-Z] \d[A-Z]\d$</c>.</summary>
     [Parameter]
-    public string? Pattern { get; set; }
+    public string? RegExMatch { get; set; }
 
     /// <summary>
     /// A regular expression that also matches the partial (prefix) values typed along the way, used instead of
@@ -100,19 +113,27 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// address whose octets are 1 to 3 digits each. Each character typed is accepted only if the text so far plus
     /// that character still matches; otherwise the first character of <see cref="DelimiterCharacters"/> that makes
     /// it match again is inserted automatically (so typing "192168" becomes "192.168" on its own), and failing that
-    /// the character is silently ignored. <see cref="Pattern"/> still does the final check, against the complete
+    /// the character is silently ignored. <see cref="RegExMatch"/> still does the final check, against the complete
     /// value, when the field is committed.
     /// </summary>
     [Parameter]
-    public string? RegexPattern { get; set; }
+    public string? RegExMask { get; set; }
 
-    /// <summary>The characters <see cref="RegexPattern"/> inserts automatically as the value is typed, for example <c>"."</c> for an IPv4 address.</summary>
+    /// <summary>The characters <see cref="RegExMask"/> inserts automatically as the value is typed, for example <c>"."</c> for an IPv4 address.</summary>
     [Parameter]
     public string? DelimiterCharacters { get; set; }
 
-    /// <summary>The error shown when <see cref="Pattern"/> does not match. Defaults to the message of <see cref="MaskType"/>.</summary>
+    /// <summary>The error shown when <see cref="RegExMatch"/> does not match. Defaults to the message of <see cref="MaskType"/>.</summary>
     [Parameter]
-    public string? PatternError { get; set; }
+    public string? RegExMatchError { get; set; }
+
+    /// <summary>
+    /// For <see cref="UrsaMaskType.Decimal"/>: a standard .NET numeric format string, for example <c>N2</c> (the
+    /// default), <c>F0</c> or <c>C2</c>. Picks the number of decimal digits accepted while typing and, re-applied
+    /// on commit with <see cref="Culture"/>, the final grouping and (for <c>C</c>) the currency symbol.
+    /// </summary>
+    [Parameter]
+    public string? Format { get; set; }
 
     /// <summary>The error shown when the mask is only partly filled. Defaults to the translation of "Incomplete value".</summary>
     [Parameter]
@@ -188,12 +209,14 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        var preset = UrsaMasks.ForType(MaskType, Culture);
+        _culture = Culture ?? CultureInfo.CurrentCulture;
+        var preset = UrsaMasks.ForType(MaskType, Culture, Format);
         _mask = string.IsNullOrEmpty(Mask) ? preset?.Mask ?? "" : Mask;
-        _pattern = Pattern ?? preset?.Pattern;
-        _regexPattern = RegexPattern ?? preset?.RegexPattern;
+        _regExMatch = RegExMatch ?? preset?.RegExMatch;
+        _regExMask = RegExMask ?? preset?.RegExMask;
         _delimiters = DelimiterCharacters ?? preset?.Delimiters ?? "";
-        _patternError = PatternError ?? preset?.PatternError ?? L["Invalid value"];
+        _decimalFormat = preset?.DecimalFormat;
+        _regExMatchError = RegExMatchError ?? preset?.RegExMatchError ?? L["Invalid value"];
         _upper = UpperCase || preset?.UpperCase == true;
         _presetValidator = preset?.Validator;
 
@@ -210,10 +233,11 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var useRegex = _mask.Length == 0 && !string.IsNullOrEmpty(_regexPattern);
-        if (_mask.Length == 0 && !useRegex)
+        var useDecimal = _decimalFormat is not null;
+        var useRegex = !useDecimal && _mask.Length == 0 && !string.IsNullOrEmpty(_regExMask);
+        if (_mask.Length == 0 && !useRegex && !useDecimal)
         {
-            // No mask and no regex (for example an email): a plain text field, with nothing attached in the browser.
+            // No mask, regex or decimal format (for example an email): a plain text field, nothing attached in the browser.
             _pendingSync = false;
             if (_attachedKey is not null && _module is not null)
             {
@@ -224,7 +248,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
             return;
         }
 
-        var key = useRegex ? $"regex|{_regexPattern}|{_delimiters}|{_upper}" : $"mask|{_mask}|{_upper}|{CommitOn}";
+        var key = useDecimal ? $"decimal|{_decimalFormat}|{CommitOn}"
+            : useRegex ? $"regex|{_regExMask}|{_delimiters}|{_upper}"
+            : $"mask|{_mask}|{_upper}|{CommitOn}";
         if (_attachedKey == key && !_pendingSync)
         {
             return;
@@ -235,16 +261,30 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         _pendingSync = false;
         _module ??= await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
         _self ??= DotNetObjectReference.Create(this);
-        object options = useRegex
-            ? new { mode = "regex", regex = _regexPattern, delimiters = _delimiters, upper = _upper }
-            : new { mode = "mask", mask = _mask, upper = _upper, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
+        // While typing, 'decimal' mode only enforces the decimal separator and the number of fraction digits: no
+        // grouping, no currency symbol - those only ever appear in the formatted value the server sends back once
+        // the field is committed (see UrsaMasks.NormalizeDecimal), so editing mid-value is never fighting a
+        // separator or symbol that just moved.
+        object options = useDecimal
+            ? new
+            {
+                mode = "decimal",
+                decimalSeparator = _decimalFormat!.DecimalSeparator,
+                maxFractionDigits = _decimalFormat.MaxFractionDigits,
+                allowNegative = true,
+            }
+            : useRegex
+                ? new { mode = "regex", regex = _regExMask, delimiters = _delimiters, upper = _upper }
+                : new { mode = "mask", mask = _mask, upper = _upper, commitOnComplete = CommitOn == UrsaMaskCommit.Complete };
         await _module.InvokeVoidAsync(attach ? "attach" : "update", _wrapper, attach ? _self : options, attach ? options : null);
     }
 
     // MudTextField's own change event (blur or Enter); it carries the text the script displays.
     private Task OnNativeChangedAsync(string? text) => CommitAsync(text ?? "");
 
-    private async Task CommitAsync(string text)
+    private Task CommitAsync(string text) => _decimalFormat is { } decimalFormat ? CommitDecimalAsync(text, decimalFormat) : CommitMaskAsync(text);
+
+    private async Task CommitMaskAsync(string text)
     {
         if (_mask.Length == 0)
         {
@@ -263,9 +303,9 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         {
             _error = IncompleteError ?? L["Incomplete value"];
         }
-        else if (_pattern is not null && !Regex.IsMatch(text, _pattern, RegexOptions.None, TimeSpan.FromSeconds(1)))
+        else if (_regExMatch is not null && !Regex.IsMatch(text, _regExMatch, RegexOptions.None, TimeSpan.FromSeconds(1)))
         {
-            _error = _patternError;
+            _error = _regExMatchError;
         }
         else
         {
@@ -279,6 +319,43 @@ public partial class UrsaMaskedField : ComponentBase, IAsyncDisposable
         {
             _committed = value;
             await ValueChanged.InvokeAsync(value);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task CommitDecimalAsync(string text, UrsaDecimalFormat format)
+    {
+        text = text.Trim();
+        string? value = null;
+        _error = null;
+
+        if (text.Length == 0)
+        {
+            // empty: no value and no error (use Required to forbid it)
+        }
+        else if (UrsaMasks.NormalizeDecimal(text, format, _culture) is not { } normalized)
+        {
+            _error = _regExMatchError;
+        }
+        else
+        {
+            _error = Validator?.Invoke(normalized);
+            value = _error is null ? normalized : null;
+        }
+
+        _text = value ?? text;
+        if (value != _committed)
+        {
+            _committed = value;
+            await ValueChanged.InvokeAsync(value);
+        }
+
+        // The DOM may already show exactly this string from an earlier commit, in which case Blazor's own
+        // rendering sees no change and leaves the live (unformatted) text in place: force it explicitly.
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("setText", _wrapper, _text);
         }
 
         StateHasChanged();

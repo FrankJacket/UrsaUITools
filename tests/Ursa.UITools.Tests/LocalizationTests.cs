@@ -39,11 +39,11 @@ public partial class LocalizationTests
         try
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-CA");
-            Assert.Equal("Code postal invalide", UrsaMasks.ForType(UrsaMaskType.PostalCodeCanada)!.PatternError);
+            Assert.Equal("Code postal invalide", UrsaMasks.ForType(UrsaMaskType.PostalCodeCanada)!.RegExMatchError);
             Assert.Equal("Date invalide", UrsaMasks.ForType(UrsaMaskType.Date, CultureInfo.GetCultureInfo("fr-FR"))!.Validator!("31/02/2027"));
 
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-            Assert.Equal("Not a valid postal code", UrsaMasks.ForType(UrsaMaskType.PostalCodeCanada)!.PatternError);
+            Assert.Equal("Not a valid postal code", UrsaMasks.ForType(UrsaMaskType.PostalCodeCanada)!.RegExMatchError);
         }
         finally
         {

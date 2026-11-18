@@ -12,8 +12,8 @@
 </MudText>
 
 <MudText Class="mb-4">
-    <b>MaskType</b> picks a ready-made format and its validation: set it and the mask, the pattern and the error message are filled in.
-    Anything you set explicitly (<b>Mask</b>, <b>Pattern</b>, <b>PatternError</b>, <b>UpperCase</b>) wins over the preset.
+    <b>MaskType</b> picks a ready-made format and its validation: set it and the mask, the match pattern and the error message are
+    filled in. Anything you set explicitly (<b>Mask</b>, <b>RegExMatch</b>, <b>RegExMatchError</b>, <b>UpperCase</b>) wins over the preset.
 </MudText>
 
 <MudGrid>
@@ -46,7 +46,7 @@
         <MudText Typo="Typo.caption">Value: @(_dateTimeType ?? "(none)")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaMaskedField @bind-Value="_override" MaskType="UrsaMaskType.PostalCodeCanada" PatternError="Please enter a Canadian postal code"
+        <UrsaMaskedField @bind-Value="_override" MaskType="UrsaMaskType.PostalCodeCanada" RegExMatchError="Please enter a Canadian postal code"
                          Label="Preset with an overridden error" Placeholder="H2X 1Y4" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @(_override ?? "(none)")</MudText>
     </MudItem>
@@ -69,12 +69,43 @@
         <UrsaMaskedField @bind-Value="_ip" MaskType="UrsaMaskType.Ipv4" Label="IPv4 address" Placeholder="192.168.1.1" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @(_ip ?? "(none)")</MudText>
     </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_version" RegExMask="@(@"^\d{0,3}(?:\.\d{0,3}){0,2}(?!\s)$")" DelimiterCharacters="."
+                         RegExMatch="@(@"^\d{1,3}(?:\.\d{1,3}){2}$")" RegExMatchError="Not a valid version number"
+                         Label="Version (custom RegExMask)" Placeholder="1.42.7" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_version ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_amount" MaskType="UrsaMaskType.Decimal" Format="N2"
+                         Label="@($"Amount ({CultureInfo.CurrentCulture.Name}, N2)")" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_amount ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_amountFrCa" MaskType="UrsaMaskType.Decimal" Format="N2" Culture="_frCa"
+                         Label="Amount (fr-CA, N2)" Placeholder="1 234,56" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_amountFrCa ?? "(none)")</MudText>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <UrsaMaskedField @bind-Value="_price" MaskType="UrsaMaskType.Decimal" Format="C2"
+                         Label="@($"Price ({CultureInfo.CurrentCulture.Name}, C2)")" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @(_price ?? "(none)")</MudText>
+    </MudItem>
 </MudGrid>
 
 <MudText Class="mt-4">
     <b>Ipv4</b> has no fixed width (an octet is 1 to 3 digits), so it has no <b>Mask</b>: typing is constrained in real time by
-    <b>RegexPattern</b> and <b>DelimiterCharacters</b>, which insert the "." separators automatically as you type (e.g. typing
-    "192168" becomes "192.168" on its own). Use these two parameters directly for a custom value shaped the same way.
+    <b>RegExMask</b> and <b>DelimiterCharacters</b>, which insert the "." separators automatically as you type (e.g. typing
+    "192168" becomes "192.168" on its own), while <b>RegExMatch</b> still checks the complete value on commit. The <b>Version</b>
+    field above sets <b>RegExMask</b>/<b>DelimiterCharacters</b> directly, with no <b>MaskType</b> preset, to show the same
+    mechanism applied to a custom shape (x.y.z, 1 to 3 digits per part).
+</MudText>
+
+<MudText Class="mt-4">
+    <b>Decimal</b> keeps typing plain: only the decimal separator of <b>Culture</b> is enforced, whichever of "." or "," you actually
+    press (so typing "125.24" shows "125,24" when the culture's separator is a comma), and <b>Format</b> (a standard .NET numeric
+    format string, <b>N2</b> by default, also <b>F0</b>, <b>C2</b>...) caps the number of fraction digits. No thousands grouping and
+    no currency symbol while editing - those only appear once the value is committed, re-parsed and re-formatted in full, so
+    "1234,5" becomes "1 234,50".
 </MudText>
 
 @code {
@@ -90,6 +121,11 @@
     private string? _dateTimeText;
     private string? _iso = "2027-11-14";
     private string? _ip;
+    private string? _version;
+    private string? _amount;
+    private string? _amountFrCa;
+    private string? _price;
+    private static readonly CultureInfo _frCa = CultureInfo.GetCultureInfo("fr-CA");
 
     private static string? ValidateDate(string text) => Validate(text, UrsaMasks.DateFormat(CultureInfo.CurrentCulture));
 

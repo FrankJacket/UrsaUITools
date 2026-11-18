@@ -23,10 +23,20 @@ public enum UrsaMaskType
 
     /// <summary>
     /// IPv4 address: <c>192.168.1.1</c>. Each octet is 1 to 3 digits, so it has no fixed width: typing is
-    /// constrained in real time by <see cref="UrsaMaskedField.RegexPattern"/> (which also inserts the <c>.</c>
+    /// constrained in real time by <see cref="UrsaMaskedField.RegExMask"/> (which also inserts the <c>.</c>
     /// separators) instead of a fixed <see cref="UrsaMaskedField.Mask"/>.
     /// </summary>
     Ipv4,
+
+    /// <summary>
+    /// A decimal number, for example <c>1 234,56</c>. While typing, only the decimal separator of the current
+    /// culture is enforced (so typing <c>.</c> or <c>,</c> always lands on the right character) and
+    /// <see cref="UrsaMaskedField.Format"/> (a standard .NET numeric format string such as <c>N2</c>, <c>F0</c> or
+    /// <c>C2</c>; defaults to <c>N2</c>) caps the number of fraction digits; there is no thousands grouping and no
+    /// currency symbol while editing. Once committed, the value is re-formatted in full (grouping and, for
+    /// <c>C</c>, the currency symbol).
+    /// </summary>
+    Decimal,
 
     /// <summary>
     /// Email address: <c>name@example.com</c>. An address has no fixed width, so there is no input mask: the field is a plain

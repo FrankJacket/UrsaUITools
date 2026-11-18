@@ -9,7 +9,7 @@ public class UrsaMaskPresetTests
     private static bool Matches(UrsaMaskType type, string text)
     {
         var preset = UrsaMasks.ForType(type)!;
-        return Regex.IsMatch(text, preset.Pattern!);
+        return Regex.IsMatch(text, preset.RegExMatch!);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class UrsaMaskPresetTests
         var preset = UrsaMasks.ForType(UrsaMaskType.Email)!;
 
         Assert.Equal("", preset.Mask);
-        Assert.Equal(expected, Regex.IsMatch(text, preset.Pattern!));
+        Assert.Equal(expected, Regex.IsMatch(text, preset.RegExMatch!));
     }
 
     [Theory]
@@ -77,13 +77,13 @@ public class UrsaMaskPresetTests
     public void Ipv4(string text, bool expected) => Assert.Equal(expected, Matches(UrsaMaskType.Ipv4, text));
 
     [Fact]
-    public void Ipv4_HasNoFixedMaskButHasARegexPattern()
+    public void Ipv4_HasNoFixedMaskButHasARegExMask()
     {
         var preset = UrsaMasks.ForType(UrsaMaskType.Ipv4)!;
 
         Assert.Equal("", preset.Mask);
         Assert.Equal(".", preset.Delimiters);
-        Assert.NotNull(preset.RegexPattern);
+        Assert.NotNull(preset.RegExMask);
     }
 
     [Theory]
@@ -95,11 +95,11 @@ public class UrsaMaskPresetTests
     [InlineData("256", false)]         // no octet can start this way
     [InlineData("192.256", false)]
     [InlineData("192.168.1.1.", false)] // a 5th octet cannot start
-    public void Ipv4_RegexPatternAlsoMatchesPartialValues(string text, bool expected)
+    public void Ipv4_RegExMaskAlsoMatchesPartialValues(string text, bool expected)
     {
         var preset = UrsaMasks.ForType(UrsaMaskType.Ipv4)!;
 
-        Assert.Equal(expected, Regex.IsMatch(text, preset.RegexPattern!));
+        Assert.Equal(expected, Regex.IsMatch(text, preset.RegExMask!));
     }
 
     [Theory]
@@ -138,5 +138,54 @@ public class UrsaMaskPresetTests
         Assert.Null(preset.Validator!("09/03/2027 14:30"));
         Assert.NotNull(preset.Validator!("09/03/2027 25:30"));
         Assert.NotNull(preset.Validator!("09/03/2027 14:61"));
+    }
+
+    [Theory]
+    [InlineData("fr-CA", null, 2, false)]
+    [InlineData("en-US", null, 2, false)]
+    [InlineData("fr-CA", "N0", 0, false)]
+    [InlineData("en-US", "C2", 2, true)]
+    [InlineData("fr-CA", "C2", 2, true)]
+    public void Decimal_FormatOfReflectsCultureAndFormat(string cultureName, string? format, int digits, bool isCurrency)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        var preset = UrsaMasks.ForType(UrsaMaskType.Decimal, culture, format)!;
+        var nf = culture.NumberFormat;
+
+        Assert.Equal("", preset.Mask);
+        Assert.NotNull(preset.DecimalFormat);
+        Assert.Equal(isCurrency ? nf.CurrencyDecimalSeparator : nf.NumberDecimalSeparator, preset.DecimalFormat!.DecimalSeparator);
+        Assert.Equal(isCurrency ? nf.CurrencyGroupSeparator : nf.NumberGroupSeparator, preset.DecimalFormat.GroupSeparator);
+        Assert.Equal(digits, preset.DecimalFormat.MaxFractionDigits);
+        Assert.Equal(isCurrency ? nf.CurrencySymbol : null, preset.DecimalFormat.CurrencySymbol);
+    }
+
+    [Theory]
+    [InlineData("fr-CA", "N2", "1234{0}5", "1{1}234{0}50")]
+    [InlineData("fr-CA", "N2", "1{1}234{0}5", "1{1}234{0}50")]
+    [InlineData("en-US", "N2", "1234.5", "1,234.50")]
+    [InlineData("en-US", "N2", "1,234.5", "1,234.50")]
+    [InlineData("fr-CA", "N0", "1234", "1{1}234")]
+    public void NormalizeDecimal_ParsesAndReformats(string cultureName, string format, string textPattern, string expectedPattern)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        var nf = culture.NumberFormat;
+        var text = string.Format(textPattern, nf.NumberDecimalSeparator, nf.NumberGroupSeparator);
+        var expected = string.Format(expectedPattern, nf.NumberDecimalSeparator, nf.NumberGroupSeparator);
+        var decimalFormat = UrsaMasks.DecimalFormatOf(format, culture);
+
+        Assert.Equal(expected, UrsaMasks.NormalizeDecimal(text, decimalFormat, culture));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("12.34.56")]
+    public void NormalizeDecimal_RejectsInvalidText(string text)
+    {
+        var culture = CultureInfo.GetCultureInfo("en-US");
+        var decimalFormat = UrsaMasks.DecimalFormatOf("N2", culture);
+
+        Assert.Null(UrsaMasks.NormalizeDecimal(text, decimalFormat, culture));
     }
 }
