@@ -5,8 +5,11 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">UrsaDatePicker</MudText>
 <MudText Class="mb-4">
-    A MudDatePicker you can type in by default. It can also edit the time of day, by typing or with a time picker.
-    Formats follow the culture of the session (<b>@CultureInfo.CurrentCulture.Name</b>, from the browser language).
+    A MudDatePicker you can type in by default, without an input mask: nothing is sent to the server while you type. When you leave the
+    field, free-form input is read and shown in the culture's format: <b>20260102</b>, <b>260102</b>, <b>2026/1/2</b> or <b>2026.01.02</b>
+    all become the same date, and a date that does not exist is refused. It can also edit the time of day, by typing or with a time
+    picker, and the calendar has a "Today" button. Formats follow the culture of the session
+    (<b>@CultureInfo.CurrentCulture.Name</b>, from the browser language).
 </MudText>
 
 <MudSelect T="string" @bind-Value="_cultureName" Label="Culture (override for this demo)" Variant="Variant.Outlined" Class="mb-6" Style="max-width: 360px">
@@ -23,7 +26,7 @@
         <MudText Typo="Typo.caption">Value: @_date?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaDatePicker @bind-Date="_dateTime"  ShowTime="true" Label="Date and time (typed)" Variant="Variant.Outlined" />
+        <UrsaDatePicker @bind-Date="_dateTime" Culture="Culture" ShowTime="true" Label="Date and time (typed)" Variant="Variant.Outlined" />
         <MudText Typo="Typo.caption">Value: @_dateTime?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
@@ -31,12 +34,9 @@
         <MudText Typo="Typo.caption">Value: @_dateTimePick?.ToString("O")</MudText>
     </MudItem>
     <MudItem xs="12" md="4">
-        <UrsaDatePicker @bind-Date="_dateCustom" Culture="Culture" MaskText="0000-00-00" DateFormat="yyyy-MM-dd" Label="Your own mask (yyyy-MM-dd)" Variant="Variant.Outlined" />
-        <MudText Typo="Typo.caption">Value: @_dateCustom?.ToString("O")</MudText>
-    </MudItem>
-    <MudItem xs="12" md="4">
-        <UrsaDatePicker @bind-Date="_dateNoMask" Culture="Culture" AutoMask="false" Label="No mask (AutoMask=false)" Variant="Variant.Outlined" />
-        <MudText Typo="Typo.caption">Value: @_dateNoMask?.ToString("O")</MudText>
+        <UrsaDatePicker @bind-Date="_dateRange" Culture="Culture" MinDate="@(new DateTime(2026, 1, 1))" MaxDate="@(new DateTime(2026, 12, 31))"
+                        Label="Only in 2026 (MinDate and MaxDate)" Variant="Variant.Outlined" />
+        <MudText Typo="Typo.caption">Value: @_dateRange?.ToString("O")</MudText>
     </MudItem>
 </MudGrid>
 
@@ -47,8 +47,7 @@
     private DateTime? _date;
     private DateTime? _dateTime = new(2026, 11, 14, 13, 45, 0);
     private DateTime? _dateTimePick;
-    private DateTime? _dateCustom;
-    private DateTime? _dateNoMask;
+    private DateTime? _dateRange;
 
     private CultureInfo Culture => string.IsNullOrEmpty(_cultureName) ? CultureInfo.CurrentCulture : CultureInfo.GetCultureInfo(_cultureName);
 }

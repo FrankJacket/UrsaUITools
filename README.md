@@ -39,7 +39,7 @@ Add `@using Ursa.UITools` to `_Imports.razor`. Scripts and styles are served aut
 ## Languages
 The components speak the UI language of the request (the browser language, or whatever `UseRequestLocalization` selects). English is the source language and the fallback; French is included.
 
-Texts are written in English in the code, for example `L["Close"]`. Each text needs its translation in `src/Ursa.UITools/Localization/UrsaFrench.cs`, otherwise a test fails (so does a translation that nothing uses). Texts you can set yourself (`OkText`, `CloseButtonLabel`, `IncompleteError`, `PatternError`, `Label`...) are never translated when you provide them.
+Texts are written in English in the code, for example `L["Close"]`. Each text needs its translation in `src/Ursa.UITools/Localization/UrsaFrench.cs`, otherwise a test fails (so does a translation that nothing uses). Texts you can set yourself (`CloseButtonLabel`, `IncompleteError`, `PatternError`, `Label`...) are never translated when you provide them.
 
 In an application, declare the supported cultures so the browser language is picked up:
 

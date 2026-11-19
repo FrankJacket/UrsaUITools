@@ -8,6 +8,8 @@ internal static class UrsaFrench
         // Floating dialog, date picker
         ["Close"] = "Fermer",
         ["OK"] = "OK",
+        ["Today"] = "Aujourd'hui",
+        ["Not a valid date. Enter for example {0} or {1}."] = "Date invalide. Saisissez par exemple {0} ou {1}.",
         ["The date must be on or after {0}"] = "La date doit être le {0} ou après",
         ["The date must be on or before {0}"] = "La date doit être le {0} ou avant",
 
