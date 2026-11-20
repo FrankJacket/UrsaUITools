@@ -11,11 +11,12 @@
          aria-modal="false"
          aria-labelledby="@_titleId"
          tabindex="-1"
-         data-draggable="@(Draggable ? "true" : "false")"
+         data-draggable="@(Draggable && !Maximized ? "true" : "false")"
          @onkeydown="OnKeyDownAsync"
          @attributes="UserAttributes">
         <div class="mud-dialog ursa-floating-dialog-paper">
-            <div class="mud-dialog-title ursa-floating-dialog-header @(Draggable ? "ursa-draggable" : null)">
+            <div class="mud-dialog-title ursa-floating-dialog-header @(Draggable && !Maximized ? "ursa-draggable" : null)"
+                 @ondblclick="OnHeaderDoubleClickAsync">
                 <div class="ursa-floating-dialog-title" id="@_titleId">
                     @if (TitleContent is not null)
                     {
@@ -26,6 +27,20 @@
                         <MudText Typo="Typo.h6">@Title</MudText>
                     }
                 </div>
+                @if (ShowMinimizeButton)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                   Size="Size.Small"
+                                   aria-label="@(MinimizeButtonLabel ?? L["Minimize"])"
+                                   OnClick="MinimizeAsync" />
+                }
+                @if (ShowMaximizeButton)
+                {
+                    <MudIconButton Icon="@(Maximized ? Icons.Material.Filled.FilterNone : Icons.Material.Filled.CropSquare)"
+                                   Size="Size.Small"
+                                   aria-label="@(Maximized ? (RestoreButtonLabel ?? L["Restore"]) : (MaximizeButtonLabel ?? L["Maximize"]))"
+                                   OnClick="ToggleMaximizeAsync" />
+                }
                 @if (ShowCloseButton)
                 {
                     <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -47,7 +62,7 @@
             }
         </div>
 
-        @if (Resizable)
+        @if (Resizable && !Maximized)
         {
             @foreach (var direction in ResizeDirections)
             {

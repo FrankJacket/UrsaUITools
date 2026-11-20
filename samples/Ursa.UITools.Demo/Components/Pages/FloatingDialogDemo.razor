@@ -13,6 +13,11 @@
         @(_visible ? "Hide dialog" : "Show dialog")
     </MudButton>
     <MudSwitch T="bool" @bind-Value="_closeOnEscape" Label="Close on Escape" Color="Color.Primary" />
+    <MudSwitch T="bool" @bind-Value="_windowButtons" Label="Minimize and maximize buttons" Color="Color.Primary" />
+    @if (_visible && _minimized)
+    {
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => _minimized = false)">Restore minimized dialog</MudButton>
+    }
 </MudStack>
 
 <MudTextField T="string" @bind-Value="_pageText" Label="Page field (stays usable while the dialog is open)" Variant="Variant.Outlined" />
@@ -27,6 +32,10 @@
 <UrsaFloatingDialog @bind-Visible="_visible"
                     Title="Edit settings"
                     CloseOnEscapeKey="_closeOnEscape"
+                    ShowMinimizeButton="_windowButtons"
+                    ShowMaximizeButton="_windowButtons"
+                    @bind-Minimized="_minimized"
+                    @bind-Maximized="_maximized"
                     OnBoundsChanged="@(x => { _bounds = x; StateHasChanged(); })">
     <DialogContent>
         <MudStack Spacing="2">
@@ -51,6 +60,9 @@
 @code {
     private bool _visible;
     private bool _closeOnEscape;
+    private bool _windowButtons = true;
+    private bool _minimized;
+    private bool _maximized;
     private string? _pageText;
     private string? _name;
     private string? _choice;

@@ -7,6 +7,9 @@ internal static class UrsaFrench
     {
         // Floating dialog, date picker
         ["Close"] = "Fermer",
+        ["Minimize"] = "Réduire",
+        ["Maximize"] = "Agrandir",
+        ["Restore"] = "Restaurer",
         ["OK"] = "OK",
         ["Today"] = "Aujourd'hui",
         ["Not a valid date. Enter for example {0} or {1}."] = "Date invalide. Saisissez par exemple {0} ou {1}.",

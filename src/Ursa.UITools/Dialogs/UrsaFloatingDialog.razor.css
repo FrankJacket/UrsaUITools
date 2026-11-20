@@ -99,3 +99,23 @@
         width: 100%;
     }
 }
+
+/* Minimized: hidden but still rendered, so the content keeps its state. */
+.ursa-floating-dialog.ursa-minimized {
+    display: none;
+}
+
+/* Maximized: fills the viewport minus the optional insets (app bar, taskbar...). The inline position
+   and size written by the script stay untouched and come back when the dialog is restored. */
+.ursa-floating-dialog.ursa-maximized {
+    left: var(--ursa-dialog-inset-left, 0px) !important;
+    top: var(--ursa-dialog-inset-top, 0px) !important;
+    width: calc(100vw - var(--ursa-dialog-inset-left, 0px) - var(--ursa-dialog-inset-right, 0px)) !important;
+    height: calc(100dvh - var(--ursa-dialog-inset-top, 0px) - var(--ursa-dialog-inset-bottom, 0px)) !important;
+    max-width: none;
+    max-height: none;
+}
+
+.ursa-floating-dialog.ursa-maximized .ursa-floating-dialog-paper {
+    border-radius: 0;
+}

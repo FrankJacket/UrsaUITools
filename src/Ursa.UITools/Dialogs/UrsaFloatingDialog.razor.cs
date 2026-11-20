@@ -23,6 +23,8 @@ public partial class UrsaFloatingDialog : MudComponentBase, IAsyncDisposable
     private IJSObjectReference? _module;
     private DotNetObjectReference<UrsaFloatingDialog>? _selfReference;
     private bool _jsInitialized;
+    private bool _wasMinimized;
+    private bool _wasMaximized;
 
     private string _titleId => $"{_id}-title";
 
@@ -99,12 +101,59 @@ public partial class UrsaFloatingDialog : MudComponentBase, IAsyncDisposable
     [Parameter]
     public int MinHeight { get; set; } = 160;
 
+    /// <summary>Shows a minimize button in the header.</summary>
+    /// <remarks>
+    /// Minimizing only hides the dialog: its content stays rendered, so its state is kept. The host is
+    /// expected to offer a way to restore it (for example a taskbar) by setting <see cref="Minimized"/> to false.
+    /// </remarks>
+    [Parameter]
+    public bool ShowMinimizeButton { get; set; }
+
+    /// <summary>Shows a maximize/restore button in the header. A double click on the header does the same.</summary>
+    [Parameter]
+    public bool ShowMaximizeButton { get; set; }
+
+    /// <summary>Whether the dialog is minimized (hidden while it stays open).</summary>
+    [Parameter]
+    public bool Minimized { get; set; }
+
+    /// <summary>Raised when <see cref="Minimized"/> changes.</summary>
+    [Parameter]
+    public EventCallback<bool> MinimizedChanged { get; set; }
+
+    /// <summary>
+    /// Whether the dialog fills the viewport. The previous position and size come back when it is restored.
+    /// The area it fills can be reduced with the CSS variables <c>--ursa-dialog-inset-top</c>,
+    /// <c>--ursa-dialog-inset-bottom</c>, <c>--ursa-dialog-inset-left</c> and <c>--ursa-dialog-inset-right</c>
+    /// (for example to leave an app bar and a taskbar visible). Moving and resizing stay inside that area too.
+    /// </summary>
+    [Parameter]
+    public bool Maximized { get; set; }
+
+    /// <summary>Raised when <see cref="Maximized"/> changes.</summary>
+    [Parameter]
+    public EventCallback<bool> MaximizedChanged { get; set; }
+
+    /// <summary>Accessible label of the minimize button. Defaults to the translation of "Minimize".</summary>
+    [Parameter]
+    public string? MinimizeButtonLabel { get; set; }
+
+    /// <summary>Accessible label of the maximize button. Defaults to the translation of "Maximize".</summary>
+    [Parameter]
+    public string? MaximizeButtonLabel { get; set; }
+
+    /// <summary>Accessible label of the restore button. Defaults to the translation of "Restore".</summary>
+    [Parameter]
+    public string? RestoreButtonLabel { get; set; }
+
     /// <summary>Raised after the user finishes moving or resizing the dialog.</summary>
     [Parameter]
     public EventCallback<UrsaDialogBounds> OnBoundsChanged { get; set; }
 
     private string Classname =>
         new CssBuilder("ursa-floating-dialog")
+            .AddClass("ursa-minimized", Minimized)
+            .AddClass("ursa-maximized", Maximized)
             .AddClass(Class)
             .Build();
 
@@ -118,6 +167,47 @@ public partial class UrsaFloatingDialog : MudComponentBase, IAsyncDisposable
     {
         Visible = false;
         await VisibleChanged.InvokeAsync(false);
+    }
+
+    /// <summary>Minimizes the dialog.</summary>
+    public Task MinimizeAsync() => SetMinimizedAsync(true);
+
+    /// <summary>Restores a minimized dialog; it comes back in front of the other floating dialogs.</summary>
+    public Task RestoreAsync() => SetMinimizedAsync(false);
+
+    /// <summary>Maximizes the dialog, or restores its previous size when it is already maximized.</summary>
+    public async Task ToggleMaximizeAsync()
+    {
+        Maximized = !Maximized;
+        await MaximizedChanged.InvokeAsync(Maximized);
+    }
+
+    /// <summary>Puts the dialog above the other floating dialogs.</summary>
+    public async Task BringToFrontAsync()
+    {
+        if (_module is not null && _jsInitialized)
+        {
+            await _module.InvokeVoidAsync("bringToFront", _id);
+        }
+    }
+
+    private async Task SetMinimizedAsync(bool value)
+    {
+        if (Minimized == value)
+        {
+            return;
+        }
+
+        Minimized = value;
+        await MinimizedChanged.InvokeAsync(value);
+    }
+
+    private async Task OnHeaderDoubleClickAsync()
+    {
+        if (ShowMaximizeButton)
+        {
+            await ToggleMaximizeAsync();
+        }
     }
 
     /// <summary>Called from JavaScript when a move or resize gesture ends.</summary>
@@ -142,11 +232,26 @@ public partial class UrsaFloatingDialog : MudComponentBase, IAsyncDisposable
                 minHeight = MinHeight,
             });
         }
+        else if (Visible && _module is not null)
+        {
+            // Back from minimized or maximized: refit in case the viewport changed meanwhile.
+            if ((_wasMinimized && !Minimized) || (_wasMaximized && !Maximized))
+            {
+                await _module.InvokeVoidAsync("refit", _id);
+            }
+            if (_wasMinimized && !Minimized)
+            {
+                await _module.InvokeVoidAsync("bringToFront", _id);
+            }
+        }
         else if (!Visible && _jsInitialized)
         {
             _jsInitialized = false;
             await DisposeScriptAsync();
         }
+
+        _wasMinimized = Minimized;
+        _wasMaximized = Maximized;
     }
 
     private async Task OnKeyDownAsync(KeyboardEventArgs args)
